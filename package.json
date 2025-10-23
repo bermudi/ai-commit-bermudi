@@ -1,8 +1,8 @@
 {
-  "name": "ai-commit",
-  "displayName": "AI Commit",
+  "name": "ai-commit-bermudi",
+  "displayName": "AI Commit (bermudi fork)",
   "description": "Use Azure/OpenAI API to review Git changes, generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "engines": {
     "node": ">=16",
     "vscode": "^1.77.0"
@@ -23,8 +23,8 @@
     "AI Commit",
     "Auto Commit"
   ],
-  "publisher": "sitoi",
-  "repository": "https://github.com/sitoi/ai-commit",
+  "publisher": "bermudi",
+  "repository": "https://github.com/bermudi/ai-commit-bermudi",
   "icon": "images/logo.png",
   "activationEvents": [
     "onCommand:ai-commit"
@@ -118,6 +118,11 @@
           "default": "",
           "description": "Custom system prompt for generating commit messages"
         },
+        "ai-commit.USE_GITMOJI": {
+          "type": "boolean",
+          "default": true,
+          "description": "Include gitmoji in generated commit messages"
+        },
         "ai-commit.OPENAI_TEMPERATURE": {
           "type": "number",
           "default": 0.7,
@@ -191,6 +196,7 @@
     "mocha": "^10.2.0",
     "ts-loader": "^9.4.2",
     "typescript": "^4.9.5",
+    "vsce": "^2.15.0",
     "webpack": "^5.76.3",
     "webpack-cli": "^5.0.1"
   },
