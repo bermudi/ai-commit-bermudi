@@ -27,12 +27,12 @@
   "repository": "https://github.com/bermudi/ai-commit-bermudi",
   "icon": "images/logo.png",
   "activationEvents": [
-    "onCommand:ai-commit"
+    "onCommand:extension.ai-commit-bermudi"
   ],
   "contributes": {
     "commands": [
       {
-        "command": "extension.ai-commit",
+        "command": "extension.ai-commit-bermudi",
         "icon": {
           "dark": "images/icon.svg",
           "light": "images/icon.svg"
@@ -40,13 +40,17 @@
         "title": "AI Commit"
       },
       {
-        "command": "ai-commit.showAvailableModels",
+        "command": "ai-commit-bermudi.showAvailableModels",
         "title": "Show Available OpenAI Models"
+      },
+      {
+        "command": "extension.configure-ai-commit-bermudi",
+        "title": "Configure AI Commit (bermudi fork)"
       }
     ],
     "configuration": {
       "properties": {
-        "ai-commit.AI_COMMIT_LANGUAGE": {
+        "ai-commit-bermudi.AI_COMMIT_LANGUAGE": {
           "default": "English",
           "description": "Commit message language",
           "enum": [
@@ -93,44 +97,44 @@
           ],
           "type": "string"
         },
-        "ai-commit.AZURE_API_VERSION": {
+        "ai-commit-bermudi.AZURE_API_VERSION": {
           "default": "",
           "description": "AZURE API VERSION",
           "type": "string"
         },
-        "ai-commit.OPENAI_API_KEY": {
+        "ai-commit-bermudi.OPENAI_API_KEY": {
           "default": "",
           "description": "OpenAI API Key",
           "type": "string"
         },
-        "ai-commit.OPENAI_BASE_URL": {
+        "ai-commit-bermudi.OPENAI_BASE_URL": {
           "default": "",
           "description": "OpenAI BASE URL",
           "type": "string"
         },
-        "ai-commit.OPENAI_MODEL": {
+        "ai-commit-bermudi.OPENAI_MODEL": {
           "default": "gpt-4o",
           "description": "OpenAI MODEL, you can select a model from the list by running the 'Show Available OpenAI Models' command",
           "type": "string"
         },
-        "ai-commit.AI_COMMIT_SYSTEM_PROMPT": {
+        "ai-commit-bermudi.AI_COMMIT_SYSTEM_PROMPT": {
           "type": "string",
           "default": "",
           "description": "Custom system prompt for generating commit messages"
         },
-        "ai-commit.USE_GITMOJI": {
+        "ai-commit-bermudi.USE_GITMOJI": {
           "type": "boolean",
           "default": true,
           "description": "Include gitmoji in generated commit messages"
         },
-        "ai-commit.OPENAI_TEMPERATURE": {
+        "ai-commit-bermudi.OPENAI_TEMPERATURE": {
           "type": "number",
           "default": 0.7,
           "minimum": 0,
           "maximum": 2,
           "description": "OpenAI temperature setting (0-2). Higher values make output more random, lower values more deterministic."
         },
-        "ai-commit.AI_PROVIDER": {
+        "ai-commit-bermudi.AI_PROVIDER": {
           "type": "string",
           "default": "openai",
           "description": "AI Provider to use (OpenAI or Gemini)",
@@ -139,17 +143,17 @@
             "gemini"
           ]
         },
-        "ai-commit.GEMINI_API_KEY": {
+        "ai-commit-bermudi.GEMINI_API_KEY": {
           "type": "string",
           "default": "",
           "description": "Gemini API Key"
         },
-        "ai-commit.GEMINI_MODEL": {
+        "ai-commit-bermudi.GEMINI_MODEL": {
           "type": "string",
           "default": "gemini-2.0-flash-001",
           "description": "Gemini Model to use"
         },
-        "ai-commit.GEMINI_TEMPERATURE": {
+        "ai-commit-bermudi.GEMINI_TEMPERATURE": {
           "type": "number",
           "default": 0.7,
           "minimum": 0,
@@ -162,7 +166,7 @@
     "menus": {
       "scm/title": [
         {
-          "command": "extension.ai-commit",
+          "command": "extension.ai-commit-bermudi",
           "group": "navigation"
         }
       ]

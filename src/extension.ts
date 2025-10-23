@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { CommandManager } from './commands';
-import { ConfigurationManager } from './config';
+import { CONFIG_NAMESPACE, ConfigurationManager } from './config';
 
 /**
  * Activates the extension and registers commands.
@@ -32,7 +32,7 @@ export async function activate(context: vscode.ExtensionContext) {
       if (result === 'Yes') {
         await vscode.commands.executeCommand(
           'workbench.action.openSettings',
-          'ai-commit.OPENAI_API_KEY'
+          `${CONFIG_NAMESPACE}.OPENAI_API_KEY`
         );
       }
     }

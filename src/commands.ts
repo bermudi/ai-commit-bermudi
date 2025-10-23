@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { generateCommitMsg } from './generate-commit-msg';
-import { ConfigurationManager } from './config';
+import { CONFIG_NAMESPACE, ConfigurationManager } from './config';
 
 /**
  * Manages the registration and disposal of commands.
@@ -11,13 +11,13 @@ export class CommandManager {
   constructor(private context: vscode.ExtensionContext) {}
 
   registerCommands() {
-    this.registerCommand('extension.ai-commit', generateCommitMsg);
-    this.registerCommand('extension.configure-ai-commit', () =>
-      vscode.commands.executeCommand('workbench.action.openSettings', 'ai-commit')
+    this.registerCommand('extension.ai-commit-bermudi', generateCommitMsg);
+    this.registerCommand('extension.configure-ai-commit-bermudi', () =>
+      vscode.commands.executeCommand('workbench.action.openSettings', CONFIG_NAMESPACE)
     );
 
     // Show available OpenAI models
-    this.registerCommand('ai-commit.showAvailableModels', async () => {
+    this.registerCommand('ai-commit-bermudi.showAvailableModels', async () => {
       const configManager = ConfigurationManager.getInstance();
       const models = await configManager.getAvailableOpenAIModels();
       const selected = await vscode.window.showQuickPick(models, {
@@ -25,7 +25,7 @@ export class CommandManager {
       });
       
       if (selected) {
-        const config = vscode.workspace.getConfiguration('ai-commit');
+        const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
         await config.update('OPENAI_MODEL', selected, vscode.ConfigurationTarget.Global);
       }
     });
@@ -68,7 +68,7 @@ export class CommandManager {
         } else if (result === 'Configure') {
           await vscode.commands.executeCommand(
             'workbench.action.openSettings',
-            'ai-commit'
+            CONFIG_NAMESPACE
           );
         }
       }
