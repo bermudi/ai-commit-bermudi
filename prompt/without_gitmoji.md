@@ -180,6 +180,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
    - Lines in the commit body SHOULD NOT exceed 72 characters.
    - Bullet points are RECOMMENDED for lists and MUST use a hyphen (`-`) followed by a space.
    - A commit body is free-form and MAY consist of any number of newline separated paragraphs.
+   - Simple changes that would only restate the subject SHOULD omit the body and any footers; a concise header-only commit is RECOMMENDED in these cases.
 
 7. One or more footers MAY be provided one blank line after the body. Each footer MUST consist of a word token, followed by either a `:<space>` or `<space>#` separator, followed by a string value (this is inspired by the [git trailer convention](https://git-scm.com/docs/git-interpret-trailers)).
 
@@ -285,7 +286,6 @@ Before committing, verify:
 - [ ] Breaking changes have `!` before the colon
 - [ ] Body lines are 72 characters or less (if body present)
 - [ ] Bullet points use `-` (if lists present)
-- [ ] All text is in English
 - [ ] Commit represents a single logical change
 
 ---
