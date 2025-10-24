@@ -39,8 +39,6 @@ This version promotes the `!` subject line indicator from an option to a require
 
 - **Body Rules:** The body now has a recommended 72-character line limit and mandates hyphens (`-`) for bullet points. (See Specification rule 6)
 
-- **Language Mandate:** All parts of the commit message MUST be in English. (See Specification rule 17)
-
 - **Recommended Types:** The list of recommended types (`build`, `chore`, `ci`, etc.) is now formally part of the specification, and `i18n` has been added. (See Specification rule 14)
 
 - **FAQ Updates:** The FAQ has been updated to reflect these stricter rules.
@@ -79,6 +77,7 @@ This version promotes the `!` subject line indicator from an option to a require
 ```
 
 **Example:**
+
 ```
 feat(auth): add password reset functionality
 
@@ -94,6 +93,7 @@ Refs: #123
 ## Examples
 
 ### Commit message with description and optional breaking change footer
+
 ```
 feat!: allow provided config object to extend other configs
 
@@ -101,16 +101,19 @@ BREAKING CHANGE: `extends` key in config file is now used for extending other co
 ```
 
 ### Commit message with `!` (now mandatory for breaking changes)
+
 ```
 feat!: send an email to the customer when a product is shipped
 ```
 
 ### Commit message with scope and `!` (now mandatory for breaking changes)
+
 ```
 feat(api)!: send an email to the customer when a product is shipped
 ```
 
 ### Commit message with both `!` and BREAKING CHANGE footer
+
 ```
 chore!: drop support for Node 6
 
@@ -118,16 +121,19 @@ BREAKING CHANGE: use JavaScript features not available in Node 6.
 ```
 
 ### Commit message with no body (non-breaking)
+
 ```
 docs: correct spelling of CHANGELOG
 ```
 
 ### Commit message with scope (non-breaking)
+
 ```
 feat(lang): add Polish language
 ```
 
 ### Commit message with multi-paragraph body and multiple footers (non-breaking)
+
 ```
 fix: prevent racing of requests
 
@@ -142,6 +148,7 @@ Refs: #123
 ```
 
 ### Revert commit
+
 ```
 revert: let us never again speak of the noodle incident
 
@@ -191,8 +198,6 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 14. The units of information that make up Conventional Commits MUST NOT be treated as case sensitive by implementors, with the exception of `BREAKING CHANGE` which MUST be uppercase.
 
 15. `BREAKING-CHANGE` MUST be synonymous with `BREAKING CHANGE`, when used as a token in a footer.
-
-16. All parts of the commit message (type, scope, description, body, and footers) MUST be written in English.
 
 ---
 
@@ -247,7 +252,7 @@ We recommend using SemVer to release your own extensions to this specification (
 
 ### Do all my contributors need to use the Conventional Commits specification?
 
-No! If you use a squash based workflow on Git, lead maintainers can clean up the commit messages as they're merged—adding no workload to casual committers. A common workflow for this is to have your git system automatically squash commits from a pull request and present a form for the lead maintainer to enter the proper git commit message for the merge.
+No\! If you use a squash based workflow on Git, lead maintainers can clean up the commit messages as they're merged—adding no workload to casual committers. A common workflow for this is to have your git system automatically squash commits from a pull request and present a form for the lead maintainer to enter the proper git commit message for the merge.
 
 ### How does Conventional Commits handle revert commits?
 
@@ -262,10 +267,6 @@ revert: let us never again speak of the noodle incident
 
 Refs: 676104e, a215868
 ```
-
-### Why must commit messages be in English?
-
-To ensure a consistent and accessible commit history for a global audience. Tools built on top of Conventional Commits often assume a single, consistent language (English) for parsing, processing, and changelog generation.
 
 ### Are the 50/72 character limits a hard rule?
 
