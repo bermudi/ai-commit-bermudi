@@ -2,7 +2,7 @@ import * as fs from 'fs-extra';
 import { ChatCompletionMessageParam } from 'openai/resources';
 import * as vscode from 'vscode';
 import { ConfigKeys, ConfigurationManager } from './config';
-import { getDiffStaged } from './git-utils';
+import { getDiffStaged, getDiffWorkingTree } from './git-utils';
 import { ChatGPTAPI } from './openai-utils';
 import { getMainCommitPrompt } from './prompts';
 import { ProgressHandler } from './utils';
@@ -76,14 +76,27 @@ export async function generateCommitMsg(arg) {
       const aiProvider = configManager.getConfig<string>(ConfigKeys.AI_PROVIDER, 'openai');
 
       progress.report({ message: 'Getting staged changes...' });
-      const { diff, error } = await getDiffStaged(repo);
+      let { diff, error } = await getDiffStaged(repo);
+      let diffSource: 'staged' | 'unstaged' = 'staged';
 
       if (error) {
         throw new Error(`Failed to get staged changes: ${error}`);
       }
 
       if (!diff || diff === 'No changes staged.') {
-        throw new Error('No changes staged for commit');
+        progress.report({ message: 'No staged changes found. Checking unstaged changes...' });
+        const fallback = await getDiffWorkingTree(repo);
+
+        if (fallback.error) {
+          throw new Error(`Failed to get unstaged changes: ${fallback.error}`);
+        }
+
+        if (!fallback.diff || fallback.diff === 'No unstaged changes.') {
+          throw new Error('No changes available to analyze');
+        }
+
+        diff = fallback.diff;
+        diffSource = 'unstaged';
       }
 
       const scmInputBox = repo.inputBox;
@@ -95,8 +108,8 @@ export async function generateCommitMsg(arg) {
 
       progress.report({
         message: additionalContext
-          ? 'Analyzing changes with additional context...'
-          : 'Analyzing changes...'
+          ? `Analyzing ${diffSource} changes with additional context...`
+          : `Analyzing ${diffSource} changes...`
       });
       const messages = await generateCommitMessageChatCompletionPrompt(
         diff,
@@ -105,8 +118,8 @@ export async function generateCommitMsg(arg) {
 
       progress.report({
         message: additionalContext
-          ? 'Generating commit message with additional context...'
-          : 'Generating commit message...'
+          ? `Generating commit message from ${diffSource} changes with additional context...`
+          : `Generating commit message from ${diffSource} changes...`
       });
       try {
         let commitMessage: string | undefined;
