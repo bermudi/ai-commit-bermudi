@@ -6,7 +6,7 @@
 
 <h1>AI Commit (bermudi fork)</h1>
 
-Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review Git changes, generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent.
+Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review Git changes, generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent. Fork uses [Conventional Commits 1.0.1 unofficial specification](https://github.com/bermudi/conventional-commits-unofficial).
 
 **English** · [Report Bug][github-issues-link] · [Request Feature][github-issues-link]
 
