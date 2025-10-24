@@ -54,23 +54,24 @@ Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review Git changes, generat
 
 ### ⚙️ Configuration
 
-> **Note** Version >= 0.0.5 Don't need to configure `EMOJI_ENABLED` and `FULL_GITMOJI_SPEC`, Default Prompt is [prompt/with_gitmoji.md](./prompt/with_gitmoji.md), If don't need to use `Gitmoji`. Please set `SYSTEM_PROMPT` to your custom prompt, please refer to [prompt/without_gitmoji.md](./prompt/without_gitmoji.md).
+> **Note** Use `USE_GITMOJI` to toggle Gitmoji output. To fully customize the behaviour, provide `SYSTEM_PROMPT` (see [prompt/with_gitmoji.md](./prompt/with_gitmoji.md) and [prompt/without_gitmoji.md](./prompt/without_gitmoji.md)).
 
 In the VSCode settings, locate the "ai-commit" configuration options and configure them as needed:
 
-| Configuration      |  Type  |       Default        | Required |                                                       Notes                                                        |
-| :----------------- | :----: | :------------------: | :------: | :----------------------------------------------------------------------------------------------------------------: |
-| AI_PROVIDER        | string |        openai        |   Yes    |                                     Select AI Provider: `openai` or `gemini`.                                      |
-| OPENAI_API_KEY     | string |         None         |   Yes    |    Required when `AI Provider` is set to `OpenAI`. [OpenAI token](https://platform.openai.com/account/api-keys)    |
-| OPENAI_BASE_URL    | string |         None         |    No    |                If using Azure, use: https://{resource}.openai.azure.com/openai/deployments/{model}                 |
-| OPENAI_MODEL       | string |        gpt-4o        |   Yes    |      OpenAI MODEL, you can select a model from the list by running the `Show Available OpenAI Models` command      |
-| AZURE_API_VERSION  | string |         None         |    No    |                                                 AZURE_API_VERSION                                                  |
-| OPENAI_TEMPERATURE | number |         0.7          |    No    |      Controls randomness in the output. Range: 0-2. Lower values: more focused, Higher values: more creative       |
-| GEMINI_API_KEY     | string |         None         |   Yes    |     Required when `AI Provider` is set to `Gemini`. [Gemini API key](https://makersuite.google.com/app/apikey)     |
-| GEMINI_MODEL       | string | gemini-2.0-flash-001 |   Yes    |                       Gemini MODEL. Currently, model selection is limited to configuration.                        |
-| GEMINI_TEMPERATURE | number |         0.7          |    No    | Controls randomness in the output. Range: 0-2 for Gemini. Lower values: more focused, Higher values: more creative |
-| AI_COMMIT_LANGUAGE | string |          en          |   Yes    |                                               Supports 19 languages                                                |
-| SYSTEM_PROMPT      | string |         None         |    No    |                                                Custom system prompt                                                |
+| Configuration      |  Type  |       Default        |  Required   |                                                       Notes                                                        |
+| :----------------- | :----: | :------------------: | :---------: | :----------------------------------------------------------------------------------------------------------------: |
+| AI_PROVIDER        | string |        openai        |     Yes      |                          Select AI provider: `openai` or `gemini`. Azure OpenAI also uses `openai`.                 |
+| OPENAI_API_KEY     | string |         None         | Conditional |        Required when `AI_PROVIDER` is `openai` (OpenAI or Azure). [Get a key](https://platform.openai.com/account/api-keys).        |
+| OPENAI_BASE_URL    | string |         None         |  Optional   |           Set when using Azure OpenAI or a custom endpoint, e.g. `https://{resource}.openai.azure.com/openai/deployments/{model}`.  |
+| OPENAI_MODEL       | string |        gpt-4o        |  Optional   |               Change via the `Show Available OpenAI Models` command.                                               |
+| AZURE_API_VERSION  | string |         None         | Conditional |                          Required only when `OPENAI_BASE_URL` targets Azure OpenAI.                                 |
+| OPENAI_TEMPERATURE | number |         0.7          |  Optional   |      Controls randomness (0-2). Lower values are more deterministic; higher values are more creative.              |
+| GEMINI_API_KEY     | string |         None         | Conditional |         Required when `AI_PROVIDER` is `gemini`. [Get a key](https://makersuite.google.com/app/apikey).             |
+| GEMINI_MODEL       | string | gemini-2.0-flash-001 |  Optional   |                       Gemini model selection is currently configuration-only.                                      |
+| GEMINI_TEMPERATURE | number |         0.7          |  Optional   | Controls randomness (0-2). Lower values are more focused; higher values are more creative.                         |
+| AI_COMMIT_LANGUAGE | string |        English       |  Optional   |                         Supports 19 languages (see setting for the full list).                                     |
+| USE_GITMOJI        | boolean|         true         |  Optional   |                         Include Gitmoji in generated commit messages. Set to `false` to disable.                   |
+| SYSTEM_PROMPT      | string |         None         |  Optional   |                    Override the default prompt; leave blank to use the built-in template.                          |
 
 ## ⌨️ Local Development
 
