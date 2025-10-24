@@ -31,7 +31,7 @@ const loadMarkdownPrompt = async (useGitmoji: boolean): Promise<string> => {
 };
 
 const composePromptFromMarkdown = (language: string, markdown: string): string => {
-  const langHeader = `You must output ONLY the commit message and write ONLY in ${language}. No explanations, no questions, no extra text.\n\n`;
+  const langHeader = `Your role is to respond with a "Conventional Commit" in ${language} to the diffs you receive. No comment, no explanations, no questions, nothing. Only the commit message. \n\n`;
   return `${langHeader}${markdown}`;
 };
 

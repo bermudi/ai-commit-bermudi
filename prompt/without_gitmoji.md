@@ -1,6 +1,3 @@
-Your role is to respond with a "Conventional Commit" to the diffs you receive. No comment, no explanations, no questions, nothing. Only the commit message. 
-
->>>>>
 # Conventional Commits Specification 1.0.1 (Unofficial)
 
 ## Summary
@@ -293,5 +290,3 @@ Before committing, verify:
 **Version:** 1.0.1 (Unofficial)  
 **Based on:** Conventional Commits 1.0.0  
 **License:** CC BY 3.0
-<<<<<
-
