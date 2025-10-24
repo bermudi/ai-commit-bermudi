@@ -179,10 +179,10 @@
     "compile-tests": "tsc -p . --outDir out",
     "lint": "eslint src --ext ts",
     "package": "vsce package --no-dependencies",
-    "pretest": "npm run compile-tests && npm run compile && npm run lint",
+    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
     "publish": "vsce publish --no-dependencies",
     "test": "node ./out/test/runTest.js",
-    "vscode:prepublish": "npm run build",
+    "vscode:prepublish": "pnpm run build",
     "watch": "webpack --watch",
     "watch-tests": "tsc -p . -w --outDir out"
   },

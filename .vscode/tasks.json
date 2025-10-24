@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "type": "npm",
+      "type": "pnpm",
       "script": "watch",
       "problemMatcher": "$ts-webpack-watch",
       "isBackground": true,
@@ -16,7 +16,7 @@
       }
     },
     {
-      "type": "npm",
+      "type": "pnpm",
       "script": "watch-tests",
       "problemMatcher": "$tsc-watch",
       "isBackground": true,
@@ -28,7 +28,10 @@
     },
     {
       "label": "tasks: watch-tests",
-      "dependsOn": ["npm: watch", "npm: watch-tests"],
+      "dependsOn": [
+        "pnpm: watch",
+        "pnpm: watch-tests"
+      ],
       "problemMatcher": []
     }
   ]
