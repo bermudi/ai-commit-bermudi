@@ -2,13 +2,13 @@
 
 <div align="center">
 
-<img height="120" src="https://github.com/Sitoi/ai-commit/blob/main/images/logo.png?raw=true">
+<img height="120" src="https://github.com/bermudi/ai-commit-bermudi/blob/main/images/logo.png?raw=true">
 
-<h1>AI Commit</h1>
+<h1>AI Commit (bermudi fork)</h1>
 
 Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review Git changes, generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent.
 
-**English** · [简体中文](./README.zh_CN.md) · [Report Bug][github-issues-link] · [Request Feature][github-issues-link]
+**English** · [Report Bug][github-issues-link] · [Request Feature][github-issues-link]
 
 <!-- SHIELD GROUP -->
 
@@ -21,7 +21,6 @@ Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review Git changes, generat
 [![][avarage-rating-shield]][avarage-rating-link]
 [![][github-license-shield]][github-license-link]
 
-![](https://github.com/sitoi/ai-commit/blob/main/aicommit.gif?raw=true)
 
 </div>
 
@@ -82,9 +81,9 @@ You can use Github Codespaces for online development:
 Alternatively, you can clone the repository and run the following commands for local development:
 
 ```bash
-$ git clone https://github.com/sitoi/ai-commit.git
-$ cd ai-commit
-$ npm install
+$ git clone https://github.com/bermudi/ai-commit-bermudi.git
+$ cd ai-commit-bermudi
+$ pnpm install
 ```
 
 Open the project folder in VSCode. Press F5 to run the project. This will open a new Extension Development Host window and launch the plugin within it.
@@ -103,6 +102,7 @@ Contributions of all types are more than welcome, if you are interested in contr
 
 ### Credits
 
+- **ai-commit** - <https://github.com/sitoi/ai-commit>
 - **auto-commit** - <https://github.com/lynxife/auto-commit>
 - **opencommit** - <https://github.com/di-sukharev/opencommit>
 
@@ -114,25 +114,25 @@ This project is [MIT](./LICENSE) licensed.
 
 <!-- LINK GROUP -->
 
-[github-codespace-link]: https://codespaces.new/sitoi/ai-commit
-[github-codespace-shield]: https://github.com/sitoi/ai-commit/blob/main/images/codespaces.png?raw=true
-[github-contributors-link]: https://github.com/sitoi/ai-commit/graphs/contributors
-[github-contributors-shield]: https://img.shields.io/github/contributors/sitoi/ai-commit?color=c4f042&labelColor=black&style=flat-square
-[github-forks-link]: https://github.com/sitoi/ai-commit/network/members
-[github-forks-shield]: https://img.shields.io/github/forks/sitoi/ai-commit?color=8ae8ff&labelColor=black&style=flat-square
-[github-issues-link]: https://github.com/sitoi/ai-commit/issues
-[github-issues-shield]: https://img.shields.io/github/issues/sitoi/ai-commit?color=ff80eb&labelColor=black&style=flat-square
-[github-license-link]: https://github.com/sitoi/ai-commit/blob/main/LICENSE
-[github-license-shield]: https://img.shields.io/github/license/sitoi/ai-commit?color=white&labelColor=black&style=flat-square
-[github-stars-link]: https://github.com/sitoi/ai-commit/network/stargazers
-[github-stars-shield]: https://img.shields.io/github/stars/sitoi/ai-commit?color=ffcb47&labelColor=black&style=flat-square
-[pr-welcome-link]: https://github.com/sitoi/ai-commit/pulls
+[github-codespace-link]: https://codespaces.new/bermudi/ai-commit-bermudi
+[github-codespace-shield]: https://github.com/bermudi/ai-commit-bermudi/blob/main/images/codespaces.png?raw=true
+[github-contributors-link]: https://github.com/bermudi/ai-commit-bermudi/graphs/contributors
+[github-contributors-shield]: https://img.shields.io/github/contributors/bermudi/ai-commit-bermudi?color=c4f042&labelColor=black&style=flat-square
+[github-forks-link]: https://github.com/bermudi/ai-commit-bermudi/network/members
+[github-forks-shield]: https://img.shields.io/github/forks/bermudi/ai-commit-bermudi?color=8ae8ff&labelColor=black&style=flat-square
+[github-issues-link]: https://github.com/bermudi/ai-commit-bermudi/issues
+[github-issues-shield]: https://img.shields.io/github/issues/bermudi/ai-commit-bermudi?color=ff80eb&labelColor=black&style=flat-square
+[github-license-link]: https://github.com/bermudi/ai-commit-bermudi/blob/main/LICENSE
+[github-license-shield]: https://img.shields.io/github/license/bermudi/ai-commit-bermudi?color=white&labelColor=black&style=flat-square
+[github-stars-link]: https://github.com/bermudi/ai-commit-bermudi/network/stargazers
+[github-stars-shield]: https://img.shields.io/github/stars/bermudi/ai-commit-bermudi?color=ffcb47&labelColor=black&style=flat-square
+[pr-welcome-link]: https://github.com/bermudi/ai-commit-bermudi/pulls
 [pr-welcome-shield]: https://img.shields.io/badge/🤯_pr_welcome-%E2%86%92-ffcb47?labelColor=black&style=for-the-badge
-[github-contrib-link]: https://github.com/sitoi/ai-commit/graphs/contributors
-[github-contrib-shield]: https://contrib.rocks/image?repo=sitoi%2Fai-commit
-[vscode-marketplace-link]: https://marketplace.visualstudio.com/items?itemName=Sitoi.ai-commit
-[vscode-marketplace-shield]: https://img.shields.io/vscode-marketplace/v/Sitoi.ai-commit.svg?label=vscode%20marketplace&color=blue&labelColor=black&style=flat-square
-[total-installs-link]: https://marketplace.visualstudio.com/items?itemName=Sitoi.ai-commit
-[total-installs-shield]: https://img.shields.io/vscode-marketplace/d/Sitoi.ai-commit.svg?&color=greeen&labelColor=black&style=flat-square
-[avarage-rating-link]: https://marketplace.visualstudio.com/items?itemName=Sitoi.ai-commit
-[avarage-rating-shield]: https://img.shields.io/vscode-marketplace/r/Sitoi.ai-commit.svg?&color=green&labelColor=black&style=flat-square
+[github-contrib-link]: https://github.com/bermudi/ai-commit-bermudi/graphs/contributors
+[github-contrib-shield]: https://contrib.rocks/image?repo=bermudi%2Fai-commit-bermudi
+[vscode-marketplace-link]: https://marketplace.visualstudio.com/items?itemName=bermudi.ai-commit-bermudi
+[vscode-marketplace-shield]: https://img.shields.io/vscode-marketplace/v/bermudi.ai-commit-bermudi.svg?label=vscode%20marketplace&color=blue&labelColor=black&style=flat-square
+[total-installs-link]: https://marketplace.visualstudio.com/items?itemName=bermudi.ai-commit-bermudi
+[total-installs-shield]: https://img.shields.io/vscode-marketplace/d/bermudi.ai-commit-bermudi.svg?&color=greeen&labelColor=black&style=flat-square
+[avarage-rating-link]: https://marketplace.visualstudio.com/items?itemName=bermudi.ai-commit-bermudi
+[avarage-rating-shield]: https://img.shields.io/vscode-marketplace/r/bermudi.ai-commit-bermudi.svg?&color=green&labelColor=black&style=flat-square
