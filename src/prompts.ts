@@ -45,11 +45,22 @@ export const getMainCommitPrompt = async () => {
   const language = configManager.getConfig<string>(ConfigKeys.AI_COMMIT_LANGUAGE);
   const useGitmoji = configManager.getConfig<boolean>(ConfigKeys.USE_GITMOJI, true);
   const rawCustomPrompt = configManager.getConfig<string>(ConfigKeys.SYSTEM_PROMPT);
+  const rawAppendPrompt = configManager.getConfig<string>(ConfigKeys.SYSTEM_APPEND);
+
   const customPrompt = rawCustomPrompt && rawCustomPrompt.trim().length > 0 ? rawCustomPrompt : undefined;
+  const appendPrompt = rawAppendPrompt && rawAppendPrompt.trim().length > 0 ? rawAppendPrompt : undefined;
+
   if (customPrompt) {
-    return [{ role: 'system', content: customPrompt }];
+    // If there's a custom prompt, use it and append any additional text if provided
+    const content = appendPrompt ? `${customPrompt}\n\n${appendPrompt}` : customPrompt;
+    return [{ role: 'system', content }];
   }
 
+  // Load the standard markdown prompt
   const md = await loadMarkdownPrompt(useGitmoji);
-  return [{ role: 'system', content: composePromptFromMarkdown(language, md) }];
+  const basePrompt = composePromptFromMarkdown(language, md);
+
+  // Append any additional text if provided
+  const content = appendPrompt ? `${basePrompt}\n\n${appendPrompt}` : basePrompt;
+  return [{ role: 'system', content }];
 };

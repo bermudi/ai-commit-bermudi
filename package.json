@@ -2,7 +2,7 @@
   "name": "ai-commit-bermudi",
   "displayName": "AI Commit (bermudi fork)",
   "description": "Use Azure/OpenAI API to review Git changes, generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "engines": {
     "node": ">=16",
     "vscode": "^1.77.0"
@@ -121,6 +121,11 @@
           "type": "string",
           "default": "",
           "description": "Custom system prompt for generating commit messages"
+        },
+        "ai-commit-bermudi.AI_COMMIT_SYSTEM_APPEND": {
+          "type": "string",
+          "default": "",
+          "description": "Additional text to append to the system prompt for generating commit messages"
         },
         "ai-commit-bermudi.USE_GITMOJI": {
           "type": "boolean",
