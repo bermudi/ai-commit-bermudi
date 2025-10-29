@@ -179,7 +179,7 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
    - A commit body is free-form and MAY consist of any number of newline separated paragraphs.
    - Simple changes that would only restate the subject SHOULD omit the body and any footers; a concise header-only commit is RECOMMENDED in these cases.
 
-7. One or more footers MAY be provided one blank line after the body. Each footer MUST consist of a word token, followed by either a `:<space>` or `<space>#` separator, followed by a string value (this is inspired by the [git trailer convention](https://git-scm.com/docs/git-interpret-trailers)).
+7. One or more footers MAY be provided one blank line after the body. Each footer MUST consist of a word token, followed by either a `:<space>` or `<space>#` separator, followed by a string value (this is inspired by the [git trailer convention](https://git-scm.com/docs/git-interpret-trailers)). Footers like Refs:, Closes:, or Issue: are RECOMMENDED for linking to external resources (such as issue trackers, Pull Requests, or discussion forums) and SHOULD NOT be used to link to internal files or code changes (which belong in the body).
 
 8. A footer's token MUST use `-` in place of whitespace characters, e.g., `Acked-by` (this helps differentiate the footer section from a multi-paragraph body). An exception is made for `BREAKING CHANGE`, which MAY also be used as a token.
 
