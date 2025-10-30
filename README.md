@@ -89,6 +89,8 @@ $ pnpm install
 
 Open the project folder in VSCode. Press F5 to run the project. This will open a new Extension Development Host window and launch the plugin within it.
 
+Fork built with ⚡ **esbuild** for blazing fast builds.
+
 ## 🤝 Contributing
 
 Contributions of all types are more than welcome, if you are interested in contributing code, feel free to check out our GitHub [Issues][github-issues-link] to get stuck in to show us what you’re made of.
