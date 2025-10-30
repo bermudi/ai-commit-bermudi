@@ -62,3 +62,41 @@ export async function GeminiAPI(messages: any[]) {
     throw error;
   }
 }
+
+/**
+ * Lists available Gemini models that support generateContent.
+ * @returns {Promise<string[]>} Array of available model names
+ * @throws {Error} When API key is missing or API call fails
+ */
+export async function listAvailableGeminiModels(): Promise<string[]> {
+  try {
+    const apiKey = getGeminiConfig().apiKey;
+
+    // Use direct API call to list models
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000',
+      {
+        headers: {
+          'x-goog-api-key': apiKey
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Gemini models.list failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const modelNames: string[] = (data.models || [])
+      .filter((model: any) =>
+        (model.supportedGenerationMethods || []).includes('generateContent')
+      )
+      .map((model: any) => String(model.name).replace(/^models\//, ''));
+
+    return Array.from(new Set(modelNames)).sort();
+
+  } catch (error) {
+    console.error('Failed to fetch Gemini models:', error);
+    throw error;
+  }
+}

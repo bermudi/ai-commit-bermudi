@@ -1,9 +1,10 @@
 import * as vscode from 'vscode';
 import { createOpenAIApi } from './openai-utils';
-import { createGeminiAPIClient } from './gemini-utils';
+import { listAvailableGeminiModels } from './gemini-utils';
 
 export const CONFIG_NAMESPACE = 'ai-commit-bermudi';
 const GLOBAL_STATE_OPENAI_MODELS_KEY = `${CONFIG_NAMESPACE}.availableOpenAIModels`;
+const GLOBAL_STATE_GEMINI_MODELS_KEY = `${CONFIG_NAMESPACE}.availableGeminiModels`;
 
 /**
  * Configuration keys used in the AI commit extension.
@@ -51,6 +52,10 @@ export class ConfigurationManager {
         if (event.affectsConfiguration(`${CONFIG_NAMESPACE}.OPENAI_BASE_URL`) ||
           event.affectsConfiguration(`${CONFIG_NAMESPACE}.OPENAI_API_KEY`)) {
           this.updateOpenAIModelList();
+        }
+
+        if (event.affectsConfiguration(`${CONFIG_NAMESPACE}.GEMINI_API_KEY`)) {
+          this.updateGeminiModelList();
         }
       }
     });
@@ -101,6 +106,29 @@ export class ConfigurationManager {
   }
 
   /**
+   * Updates the list of available Gemini models.
+   */
+  private async updateGeminiModelList() {
+    try {
+      const models = await listAvailableGeminiModels();
+
+      // Save available models to extension state
+      await this.context.globalState.update(GLOBAL_STATE_GEMINI_MODELS_KEY, models);
+
+      // Get the current selected model
+      const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
+      const currentModel = config.get<string>('GEMINI_MODEL');
+
+      // If the current selected model is not in the available list, set it to the default value
+      if (currentModel && !models.includes(currentModel)) {
+        await config.update('GEMINI_MODEL', 'gemini-2.0-flash-001', vscode.ConfigurationTarget.Global);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Gemini models:', error);
+    }
+  }
+
+  /**
    * Retrieves the list of available OpenAI models.
    * @returns {Promise<string[]>} The list of available OpenAI models.
    */
@@ -112,50 +140,13 @@ export class ConfigurationManager {
   }
 
   /**
-   * @deprecated
-   * This function is deprecated because Gemini API does not currently support listing models via API.
-   * We have to wait for this feature to be updated to the gemini library at some point, or find another way.
-   * 
-   * Updates the list of available Gemini models.
-   */
-  /*
-  private async updateGeminiModelList() {
-    try {
-      const geminiAPI = createGeminiAPIClient();
-      const modelListResponse = await geminiAPI.listModels(); // Gemini API does not currently have a function to get a list of models
-      const availableModels = modelListResponse.models.map(model => model.name);
-
-      // Save available Gemini models to extension global state
-      await this.context.globalState.update('availableGeminiModels', availableModels);
-
-      // Get the currently selected Gemini model
-      const config = vscode.workspace.getConfiguration('ai-commit');
-      const currentModel = config.get<string>('GEMINI_MODEL');
-
-      // If the current selected Gemini model is not in the available list, set it to a default value
-      if (currentModel && !availableModels.includes(currentModel)) {
-        await config.update('GEMINI_MODEL', 'gemini-2.0-flash-001', vscode.ConfigurationTarget.Global);
-      }
-
-    } catch (error) {
-      console.error('Failed to fetch Gemini models:', error);
-    }
-  }
-  */
-
-  /**
-   * @deprecated
-   * This function is deprecated because Gemini API does not currently support listing models via API.
-   * 
    * Retrieves the list of available Gemini models.
    * @returns {Promise<string[]>} The list of available Gemini models.
    */
-  /*
   public async getAvailableGeminiModels(): Promise<string[]> {
-    if (!this.context.globalState.get<string[]>('availableGeminiModels')) {
+    if (!this.context.globalState.get<string[]>(GLOBAL_STATE_GEMINI_MODELS_KEY)) {
       await this.updateGeminiModelList();
     }
-    return this.context.globalState.get<string[]>('availableGeminiModels', []);
+    return this.context.globalState.get<string[]>(GLOBAL_STATE_GEMINI_MODELS_KEY, []);
   }
-  */
 }

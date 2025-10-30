@@ -8,7 +8,7 @@ import { CONFIG_NAMESPACE, ConfigurationManager } from './config';
 export class CommandManager {
   private disposables: vscode.Disposable[] = [];
 
-  constructor(private context: vscode.ExtensionContext) {}
+  constructor(private context: vscode.ExtensionContext) { }
 
   registerCommands() {
     this.registerCommand('extension.ai-commit-bermudi', generateCommitMsg);
@@ -17,39 +17,32 @@ export class CommandManager {
     );
 
     // Show available OpenAI models
-    this.registerCommand('ai-commit-bermudi.showAvailableModels', async () => {
+    this.registerCommand('ai-commit-bermudi.showAvailableOpenAIModels', async () => {
       const configManager = ConfigurationManager.getInstance();
       const models = await configManager.getAvailableOpenAIModels();
       const selected = await vscode.window.showQuickPick(models, {
         placeHolder: 'Please select a model'
       });
-      
+
       if (selected) {
         const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
         await config.update('OPENAI_MODEL', selected, vscode.ConfigurationTarget.Global);
       }
     });
 
-    /**
-     * @deprecated
-     * This function is deprecated because Gemini API does not currently support listing models via API.
-     * 
-     * Show available Gemini models
-     */
-    /*
-    this.registerCommand('ai-commit.showAvailableGeminiModels', async () => {
+    // Show available Gemini models
+    this.registerCommand('ai-commit-bermudi.showAvailableGeminiModels', async () => {
       const configManager = ConfigurationManager.getInstance();
-      const models = await configManager.getAvailableGeminiModels(); // Use the updated function
+      const models = await configManager.getAvailableGeminiModels();
       const selected = await vscode.window.showQuickPick(models, {
         placeHolder: 'Please select a Gemini model'
       });
 
       if (selected) {
-        const config = vscode.workspace.getConfiguration('ai-commit');
+        const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
         await config.update('GEMINI_MODEL', selected, vscode.ConfigurationTarget.Global);
       }
     });
-    */
   }
 
   private registerCommand(command: string, handler: (...args: any[]) => any) {
