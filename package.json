@@ -2,7 +2,7 @@
   "name": "ai-commit-bermudi",
   "displayName": "AI Commit (bermudi fork)",
   "description": "Use Azure/OpenAI API to review Git changes, generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent.",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "engines": {
     "node": ">=16",
     "vscode": "^1.77.0"
@@ -25,6 +25,12 @@
   ],
   "publisher": "bermudi",
   "repository": "https://github.com/bermudi/ai-commit-bermudi",
+  "activationEvents": [
+    "onCommand:extension.ai-commit-bermudi",
+    "onCommand:ai-commit-bermudi.showAvailableOpenAIModels",
+    "onCommand:ai-commit-bermudi.showAvailableGeminiModels",
+    "onCommand:extension.configure-ai-commit-bermudi"
+  ],
   "icon": "images/logo.png",
   "contributes": {
     "commands": [
@@ -37,12 +43,16 @@
         "title": "AI Commit"
       },
       {
-        "command": "ai-commit-bermudi.showAvailableModels",
-        "title": "Show Available OpenAI Models"
+        "command": "ai-commit-bermudi.showAvailableOpenAIModels",
+        "title": "AI Commit: Show Available OpenAI Models"
+      },
+      {
+        "command": "ai-commit-bermudi.showAvailableGeminiModels",
+        "title": "AI Commit: Show Available Gemini Models"
       },
       {
         "command": "extension.configure-ai-commit-bermudi",
-        "title": "Configure AI Commit (bermudi fork)"
+        "title": "AI Commit: Configure"
       }
     ],
     "configuration": {
