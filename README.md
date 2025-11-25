@@ -86,9 +86,8 @@ Alternatively, you can clone the repository and run the following commands for l
 $ git clone https://github.com/bermudi/ai-commit-bermudi.git
 $ cd ai-commit-bermudi
 $ pnpm install
+$ pnpm package
 ```
-
-Open the project folder in VSCode. Press F5 to run the project. This will open a new Extension Development Host window and launch the plugin within it.
 
 Fork built with ⚡ **esbuild** for blazing fast builds.
 
