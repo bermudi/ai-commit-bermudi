@@ -62,7 +62,10 @@ export class ConfigurationManager {
   }
 
   static getInstance(context?: vscode.ExtensionContext): ConfigurationManager {
-    if (!this.instance && context) {
+    if (!this.instance) {
+      if (!context) {
+        throw new Error('ConfigurationManager requires a context parameter for first initialization');
+      }
       this.instance = new ConfigurationManager(context);
     }
     return this.instance;
@@ -70,8 +73,14 @@ export class ConfigurationManager {
 
   getConfig<T>(key: string, defaultValue?: T): T {
     if (!this.configCache.has(key)) {
-      const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
-      this.configCache.set(key, config.get<T>(key, defaultValue));
+      try {
+        const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
+        const value = config.get<T>(key, defaultValue);
+        this.configCache.set(key, value);
+      } catch (error) {
+        console.error(`Error getting config for key ${key}:`, error);
+        return defaultValue;
+      }
     }
     return this.configCache.get(key);
   }
@@ -85,6 +94,12 @@ export class ConfigurationManager {
    */
   private async updateOpenAIModelList() {
     try {
+      const apiKey = this.getConfig<string>(ConfigKeys.OPENAI_API_KEY);
+      if (!apiKey) {
+        console.warn('OpenAI API key not configured, skipping model list update');
+        return;
+      }
+
       const openai = createOpenAIApi();
       const models = await openai.models.list();
 
@@ -102,6 +117,7 @@ export class ConfigurationManager {
       }
     } catch (error) {
       console.error('Failed to fetch OpenAI models:', error);
+      // Don't throw here, just log the error as this is not critical for basic functionality
     }
   }
 
@@ -110,6 +126,12 @@ export class ConfigurationManager {
    */
   private async updateGeminiModelList() {
     try {
+      const apiKey = this.getConfig<string>(ConfigKeys.GEMINI_API_KEY);
+      if (!apiKey) {
+        console.warn('Gemini API key not configured, skipping model list update');
+        return;
+      }
+
       const models = await listAvailableGeminiModels();
 
       // Save available models to extension state
@@ -125,6 +147,7 @@ export class ConfigurationManager {
       }
     } catch (error) {
       console.error('Failed to fetch Gemini models:', error);
+      // Don't throw here, just log the error as this is not critical for basic functionality
     }
   }
 

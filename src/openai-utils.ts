@@ -13,8 +13,24 @@ function getOpenAIConfig() {
   const baseURL = configManager.getConfig<string>(ConfigKeys.OPENAI_BASE_URL);
   const apiVersion = configManager.getConfig<string>(ConfigKeys.AZURE_API_VERSION);
 
+  console.log('OpenAI Config Check:', {
+    hasApiKey: !!apiKey,
+    apiKeyLength: apiKey?.length,
+    baseURL: baseURL || 'default',
+    apiVersion: apiVersion || 'not set'
+  });
+
   if (!apiKey) {
-    throw new Error('The OPENAI_API_KEY environment variable is missing or empty.');
+    throw new Error('OpenAI API key is not configured. Please set it in VS Code settings under "AI Commit" > "OpenAI API Key".');
+  }
+
+  if (apiKey.trim().length === 0) {
+    throw new Error('OpenAI API key is empty. Please provide a valid API key in VS Code settings.');
+  }
+
+  // Basic validation for OpenAI API key format
+  if (!apiKey.startsWith('sk-') && !baseURL) {
+    console.warn('API key does not start with "sk-" which is unusual for OpenAI keys');
   }
 
   const config: {
@@ -52,16 +68,42 @@ export function createOpenAIApi() {
  * @returns {Promise<string>} - A promise that resolves to the API response.
  */
 export async function ChatGPTAPI(messages: ChatCompletionMessageParam[]) {
-  const openai = createOpenAIApi();
-  const configManager = ConfigurationManager.getInstance();
-  const model = configManager.getConfig<string>(ConfigKeys.OPENAI_MODEL);
-  const temperature = configManager.getConfig<number>(ConfigKeys.OPENAI_TEMPERATURE, 0.7);
+  try {
+    console.log('Making OpenAI API call...');
+    const openai = createOpenAIApi();
+    const configManager = ConfigurationManager.getInstance();
+    const model = configManager.getConfig<string>(ConfigKeys.OPENAI_MODEL, 'gpt-4o');
+    const temperature = configManager.getConfig<number>(ConfigKeys.OPENAI_TEMPERATURE, 0.7);
 
-  const completion = await openai.chat.completions.create({
-    model,
-    messages: messages as ChatCompletionMessageParam[],
-    temperature
-  });
+    console.log('OpenAI API Call Parameters:', {
+      model,
+      temperature,
+      messageCount: messages.length
+    });
 
-  return completion.choices[0]!.message?.content;
+    const completion = await openai.chat.completions.create({
+      model,
+      messages: messages as ChatCompletionMessageParam[],
+      temperature
+    });
+
+    const content = completion.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error('OpenAI returned empty content');
+    }
+
+    console.log('OpenAI API call successful');
+    return content;
+  } catch (error) {
+    console.error('OpenAI API call failed:', {
+      error,
+      message: error.message,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      code: error.code
+    });
+
+    // Re-throw with additional context
+    throw error;
+  }
 }

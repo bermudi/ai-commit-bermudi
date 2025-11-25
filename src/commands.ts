@@ -50,10 +50,19 @@ export class CommandManager {
       try {
         await handler(...args);
       } catch (error) {
+        // Log detailed error information for debugging
+        console.error(`Command ${command} failed:`, {
+          error,
+          stack: error?.stack,
+          message: error?.message,
+          args
+        });
+
         const result = await vscode.window.showErrorMessage(
-          `Failed: ${error.message}`,
+          `AI Commit failed: ${error.message}`,
           'Retry',
-          'Configure'
+          'Configure',
+          'Show Details'
         );
 
         if (result === 'Retry') {
@@ -63,6 +72,21 @@ export class CommandManager {
             'workbench.action.openSettings',
             CONFIG_NAMESPACE
           );
+        } else if (result === 'Show Details') {
+          // Show detailed error information in a new document
+          const errorDetails = `
+Command: ${command}
+Error: ${error.message}
+Stack: ${error?.stack || 'No stack trace available'}
+Arguments: ${JSON.stringify(args, null, 2)}
+Timestamp: ${new Date().toISOString()}
+          `.trim();
+
+          const doc = await vscode.workspace.openTextDocument({
+            content: errorDetails,
+            language: 'plaintext'
+          });
+          await vscode.window.showTextDocument(doc);
         }
       }
     });

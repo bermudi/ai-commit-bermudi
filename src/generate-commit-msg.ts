@@ -43,22 +43,64 @@ const generateCommitMessageChatCompletionPrompt = async (
  * @returns {Promise<vscode.SourceControlRepository>} - A promise that resolves to the repository object.
  */
 export async function getRepo(arg) {
-  const gitApi = vscode.extensions.getExtension('vscode.git')?.exports.getAPI(1);
-  if (!gitApi) {
-    throw new Error('Git extension not found');
-  }
+  try {
+    console.log('Getting Git repository...');
+    const gitExtension = vscode.extensions.getExtension('vscode.git');
 
-  if (typeof arg === 'object' && arg.rootUri) {
-    const resourceUri = arg.rootUri;
-    const realResourcePath: string = fs.realpathSync(resourceUri!.fsPath);
-    for (let i = 0; i < gitApi.repositories.length; i++) {
-      const repo = gitApi.repositories[i];
-      if (realResourcePath.startsWith(repo.rootUri.fsPath)) {
-        return repo;
+    if (!gitExtension) {
+      throw new Error('Git extension not found. Please ensure the Git extension is installed and enabled.');
+    }
+
+    if (!gitExtension.isActive) {
+      console.log('Activating Git extension...');
+      await gitExtension.activate();
+    }
+
+    const gitApi = gitExtension.exports.getAPI(1);
+    if (!gitApi) {
+      throw new Error('Failed to get Git API. Please restart VS Code and try again.');
+    }
+
+    console.log(`Found ${gitApi.repositories.length} Git repositories`);
+
+    if (typeof arg === 'object' && arg.rootUri) {
+      const resourceUri = arg.rootUri;
+      const realResourcePath: string = fs.realpathSync(resourceUri!.fsPath);
+      console.log(`Looking for repository matching path: ${realResourcePath}`);
+
+      for (let i = 0; i < gitApi.repositories.length; i++) {
+        const repo = gitApi.repositories[i];
+        console.log(`Checking repository ${i}: ${repo.rootUri.fsPath}`);
+        if (realResourcePath.startsWith(repo.rootUri.fsPath)) {
+          console.log(`Found matching repository: ${repo.rootUri.fsPath}`);
+          return repo;
+        }
       }
     }
+
+    if (gitApi.repositories.length === 0) {
+      throw new Error('No Git repositories found. Please open a Git repository or initialize one in your workspace.');
+    }
+
+    console.log(`Using first repository: ${gitApi.repositories[0].rootUri.fsPath}`);
+    return gitApi.repositories[0];
+  } catch (error) {
+    console.error('Error getting Git repository:', {
+      error,
+      message: error.message,
+      stack: error.stack,
+      arg
+    });
+
+    // Re-throw with more context
+    if (error.message.includes('Git extension not found')) {
+      throw error;
+    } else if (error.message.includes('ENOENT')) {
+      throw new Error('Git repository path not found. Please check your workspace folder.');
+    } else {
+      throw new Error(`Failed to access Git repository: ${error.message}`);
+    }
   }
-  return gitApi.repositories[0];
 }
 
 /**
@@ -145,6 +187,17 @@ export async function generateCommitMsg(arg) {
           throw new Error('Failed to generate commit message');
         }
       } catch (err) {
+        // Log the full error for debugging
+        console.error('AI Commit Error Details:', {
+          error: err,
+          stack: err?.stack,
+          response: err?.response,
+          status: err?.response?.status,
+          statusText: err?.response?.statusText,
+          message: err?.message,
+          aiProvider
+        });
+
         let errorMessage = 'An unexpected error occurred';
 
         if (aiProvider === 'openai' && err.response?.status) {
@@ -161,9 +214,14 @@ export async function generateCommitMsg(arg) {
             case 503:
               errorMessage = 'OpenAI service is temporarily unavailable';
               break;
+            default:
+              errorMessage = `OpenAI API error (${err.response.status}): ${err.response.statusText || err.message}`;
           }
         } else if (aiProvider === 'gemini') {
           errorMessage = `Gemini API error: ${err.message}`;
+        } else if (err.message) {
+          // If we have a specific error message, use it
+          errorMessage = err.message;
         }
 
         throw new Error(errorMessage);
