@@ -10,9 +10,14 @@ import {
 } from '../src/reasoning-utils';
 
 /**
- * Smoke test entry point: hits OpenAI, Gemini, and Poe with a fixed prompt so we can verify
- * API keys, reasoning-mode knobs, and network reachability without going through the VS Code UI.
+ * Provider smoke test runner.
+ *
+ * This script fires the same lightweight prompt at OpenAI, Gemini, and Poe so you
+ * can verify credentials, model access, and reasoning knobs (effort/thinking budget)
+ * without staging a git commit inside VS Code. Configure API keys via environment
+ * variables or tweak the constants below, then run `pnpm exec tsx scripts/provider-smoke-test.ts`.
  */
+
 const DEFAULT_MESSAGES: ChatCompletionMessageParam[] = [
   {
     role: 'system',
@@ -24,18 +29,16 @@ const DEFAULT_MESSAGES: ChatCompletionMessageParam[] = [
   }
 ];
 
+// Centralized model + temperature configuration so you can tweak everything quickly.
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash-001';
+const POE_MODEL = process.env.POE_MODEL || 'Claude-Sonnet-4.5';
+const OPENAI_TEMPERATURE = Number(process.env.OPENAI_TEMPERATURE ?? '0.7');
+const GEMINI_TEMPERATURE = Number(process.env.GEMINI_TEMPERATURE ?? '0.7');
+const POE_TEMPERATURE = Number(process.env.POE_TEMPERATURE ?? '0.7');
+
 const REASONING_MODES: ReasoningMode[] = ['auto', 'fast', 'balanced', 'deep'];
 type OpenAIReasoningEffort = 'low' | 'medium' | 'high';
-
-/**
- * Model defaults (with environment overrides) are declared here so this script can be
- * reconfigured without digging into provider-specific logic.
- */
-const DEFAULT_MODEL_NAMES = {
-  openai: process.env.OPENAI_MODEL || 'gpt-4o',
-  gemini: process.env.GEMINI_MODEL || 'gemini-2.0-flash-001',
-  poe: process.env.POE_MODEL || 'Claude-Sonnet-4.5'
-};
 
 function normalizeOpenAIReasoningEffort(
   effort?: ReturnType<typeof deriveReasoningEffortFromMode>
@@ -106,8 +109,8 @@ async function testOpenAI(reasoningMode: ReasoningMode): Promise<TestResult> {
     }
   }
 
-  const model = process.env.OPENAI_MODEL || 'gpt-4o';
-  const temperature = Number(process.env.OPENAI_TEMPERATURE ?? '0.7');
+  const model = OPENAI_MODEL;
+  const temperature = OPENAI_TEMPERATURE;
   const reasoningEffort = normalizeOpenAIReasoningEffort(deriveReasoningEffortFromMode(reasoningMode));
 
   try {
@@ -143,8 +146,8 @@ async function testGemini(reasoningMode: ReasoningMode): Promise<TestResult> {
   }
 
   const gemini = new GoogleGenAI({ apiKey });
-  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash-001';
-  const temperature = Number(process.env.GEMINI_TEMPERATURE ?? '0.7');
+  const model = GEMINI_MODEL;
+  const temperature = GEMINI_TEMPERATURE;
 
   try {
     const contents = convertMessagesToContents(DEFAULT_MESSAGES);
@@ -183,8 +186,8 @@ async function testPoe(reasoningMode: ReasoningMode): Promise<TestResult> {
     return { provider: 'poe', status: 'skipped', detail: 'POE_API_KEY missing' };
   }
 
-  const model = process.env.POE_MODEL || 'Claude-Sonnet-4.5';
-  const temperature = Number(process.env.POE_TEMPERATURE ?? '0.7');
+  const model = POE_MODEL;
+  const temperature = POE_TEMPERATURE;
   const poe = new OpenAI({
     apiKey,
     baseURL: 'https://api.poe.com/v1'
