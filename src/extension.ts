@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { CommandManager } from './commands';
-import { CONFIG_NAMESPACE, ConfigurationManager } from './config';
+import { CONFIG_NAMESPACE, ConfigKeys, ConfigurationManager } from './config';
 
 /**
  * Activates the extension and registers commands.
@@ -21,10 +21,17 @@ export async function activate(context: vscode.ExtensionContext) {
       }
     });
 
-    const apiKey = configManager.getConfig<string>('OPENAI_API_KEY');
-    if (!apiKey) {
+    const apiKeys = [
+      configManager.getConfig<string>(ConfigKeys.OPENAI_API_KEY),
+      configManager.getConfig<string>(ConfigKeys.GEMINI_API_KEY),
+      configManager.getConfig<string>(ConfigKeys.POE_API_KEY)
+    ];
+
+    const hasAnyApiKey = apiKeys.some((key) => typeof key === 'string' && key.trim().length > 0);
+
+    if (!hasAnyApiKey) {
       const result = await vscode.window.showWarningMessage(
-        'OpenAI API Key not configured. Would you like to configure it now?',
+        'No AI provider API key configured. Would you like to configure one now?',
         'Yes',
         'No'
       );
@@ -32,7 +39,7 @@ export async function activate(context: vscode.ExtensionContext) {
       if (result === 'Yes') {
         await vscode.commands.executeCommand(
           'workbench.action.openSettings',
-          `${CONFIG_NAMESPACE}.OPENAI_API_KEY`
+          CONFIG_NAMESPACE
         );
       }
     }
