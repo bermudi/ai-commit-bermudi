@@ -1,10 +1,12 @@
 import * as vscode from 'vscode';
 import { createOpenAIApi } from './openai-utils';
 import { listAvailableGeminiModels } from './gemini-utils';
+import { listAvailablePoeModels } from './poe-utils';
 
 export const CONFIG_NAMESPACE = 'ai-commit-bermudi';
 const GLOBAL_STATE_OPENAI_MODELS_KEY = `${CONFIG_NAMESPACE}.availableOpenAIModels`;
 const GLOBAL_STATE_GEMINI_MODELS_KEY = `${CONFIG_NAMESPACE}.availableGeminiModels`;
+const GLOBAL_STATE_POE_MODELS_KEY = `${CONFIG_NAMESPACE}.availablePoeModels`;
 
 /**
  * Configuration keys used in the AI commit extension.
@@ -33,6 +35,12 @@ export enum ConfigKeys {
   GEMINI_API_KEY = 'GEMINI_API_KEY',
   GEMINI_MODEL = 'GEMINI_MODEL',
   GEMINI_TEMPERATURE = 'GEMINI_TEMPERATURE',
+  POE_API_KEY = 'POE_API_KEY',
+  POE_MODEL = 'POE_MODEL',
+  POE_TEMPERATURE = 'POE_TEMPERATURE',
+  REASONING_EFFORT = 'REASONING_EFFORT',
+  THINKING_LEVEL = 'THINKING_LEVEL',
+  THINKING_BUDGET = 'THINKING_BUDGET',
   AI_PROVIDER = 'AI_PROVIDER',
 }
 
@@ -51,13 +59,18 @@ export class ConfigurationManager {
       if (event.affectsConfiguration(CONFIG_NAMESPACE)) {
         this.configCache.clear();
 
-        if (event.affectsConfiguration(`${CONFIG_NAMESPACE}.OPENAI_BASE_URL`) ||
-          event.affectsConfiguration(`${CONFIG_NAMESPACE}.OPENAI_API_KEY`)) {
+        if (
+          event.affectsConfiguration(`${CONFIG_NAMESPACE}.OPENAI_BASE_URL`) ||
+          event.affectsConfiguration(`${CONFIG_NAMESPACE}.OPENAI_API_KEY`)
+        ) {
           this.updateOpenAIModelList();
         }
-
         if (event.affectsConfiguration(`${CONFIG_NAMESPACE}.GEMINI_API_KEY`)) {
           this.updateGeminiModelList();
+        }
+
+        if (event.affectsConfiguration(`${CONFIG_NAMESPACE}.POE_API_KEY`)) {
+          this.updatePoeModelList();
         }
       }
     });
@@ -124,6 +137,31 @@ export class ConfigurationManager {
   }
 
   /**
+   * Updates the list of available Poe models.
+   */
+  private async updatePoeModelList() {
+    try {
+      const apiKey = this.getConfig<string>(ConfigKeys.POE_API_KEY);
+      if (!apiKey) {
+        console.warn('Poe API key not configured, skipping model list update');
+        return;
+      }
+
+      const models = await listAvailablePoeModels();
+
+      await this.context.globalState.update(GLOBAL_STATE_POE_MODELS_KEY, models);
+
+      const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
+      const currentModel = config.get<string>('POE_MODEL');
+      if (currentModel && !models.includes(currentModel)) {
+        await config.update('POE_MODEL', 'Claude-Sonnet-4.5', vscode.ConfigurationTarget.Global);
+      }
+    } catch (error) {
+      console.error('Failed to fetch Poe models:', error);
+    }
+  }
+
+  /**
    * Updates the list of available Gemini models.
    */
   private async updateGeminiModelList() {
@@ -173,5 +211,16 @@ export class ConfigurationManager {
       await this.updateGeminiModelList();
     }
     return this.context.globalState.get<string[]>(GLOBAL_STATE_GEMINI_MODELS_KEY, []);
+  }
+
+  /**
+   * Retrieves the list of available Poe models.
+   * @returns {Promise<string[]>} The list of available Poe models.
+   */
+  public async getAvailablePoeModels(): Promise<string[]> {
+    if (!this.context.globalState.get<string[]>(GLOBAL_STATE_POE_MODELS_KEY)) {
+      await this.updatePoeModelList();
+    }
+    return this.context.globalState.get<string[]>(GLOBAL_STATE_POE_MODELS_KEY, []);
   }
 }

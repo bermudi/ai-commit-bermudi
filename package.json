@@ -30,6 +30,7 @@
     "onCommand:extension.ai-commit-bermudi",
     "onCommand:ai-commit-bermudi.showAvailableOpenAIModels",
     "onCommand:ai-commit-bermudi.showAvailableGeminiModels",
+    "onCommand:ai-commit-bermudi.showAvailablePoeModels",
     "onCommand:extension.configure-ai-commit-bermudi"
   ],
   "icon": "images/logo.png",
@@ -50,6 +51,10 @@
       {
         "command": "ai-commit-bermudi.showAvailableGeminiModels",
         "title": "AI Commit: Show Available Gemini Models"
+      },
+      {
+        "command": "ai-commit-bermudi.showAvailablePoeModels",
+        "title": "AI Commit: Show Available Poe Models"
       },
       {
         "command": "extension.configure-ai-commit-bermudi",
@@ -160,11 +165,29 @@
         "ai-commit-bermudi.AI_PROVIDER": {
           "type": "string",
           "default": "openai",
-          "description": "AI Provider to use (OpenAI or Gemini)",
+          "description": "AI Provider to use (OpenAI, Gemini, or Poe)",
           "enum": [
             "openai",
-            "gemini"
+            "gemini",
+            "poe"
           ]
+        },
+        "ai-commit-bermudi.POE_API_KEY": {
+          "type": "string",
+          "default": "",
+          "description": "Poe API Key (https://poe.com/api_key)"
+        },
+        "ai-commit-bermudi.POE_MODEL": {
+          "type": "string",
+          "default": "Claude-Sonnet-4.5",
+          "description": "Poe Model/Bot to use. Run the 'Show Available Poe Models' command to pick from your account."
+        },
+        "ai-commit-bermudi.POE_TEMPERATURE": {
+          "type": "number",
+          "default": 0.7,
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Poe temperature setting (0-2). Controls randomness."
         },
         "ai-commit-bermudi.GEMINI_API_KEY": {
           "type": "string",
@@ -182,6 +205,28 @@
           "minimum": 0,
           "maximum": 2,
           "description": "Gemini temperature setting (0-2). Controls randomness."
+        },
+        "ai-commit-bermudi.REASONING_EFFORT": {
+          "type": "string",
+          "default": "auto",
+          "description": "Preferred reasoning effort for providers that support advanced reasoning (OpenAI reasoning models, Poe bots). Use 'auto' to defer to the provider. Supported values include low, medium, high.",
+          "enum": [
+            "auto",
+            "low",
+            "medium",
+            "high",
+            "max"
+          ]
+        },
+        "ai-commit-bermudi.THINKING_LEVEL": {
+          "type": "string",
+          "default": "auto",
+          "description": "Thinking level hint for Poe bots that expose multi-step reasoning controls (e.g., low, medium, high). Use 'auto' to leave unspecified."
+        },
+        "ai-commit-bermudi.THINKING_BUDGET": {
+          "type": "number",
+          "default": 0,
+          "description": "Thinking budget for Poe bots that support it. Set to 0 to allow the provider default. Positive integers increase reasoning time."
         }
       },
       "title": "AI Commit"

@@ -8,6 +8,7 @@ import { ChatGPTAPI } from './openai-utils';
 import { getMainCommitPrompt } from './prompts';
 import { ProgressHandler } from './utils';
 import { GeminiAPI } from './gemini-utils';
+import { PoeChatAPI } from './poe-utils';
 
 /**
  * Scans the openspec directory to provide context about active specs.
@@ -59,7 +60,7 @@ const generateCommitMessageChatCompletionPrompt = async (
   if (recentCommits) contextMsg += `Recent Commits:\n${recentCommits}\n`;
   if (additionalContext) contextMsg += `User Notes: ${additionalContext}\n`;
 
-  if (branchName || openSpecContext || additionalContext) {
+  if (branchName || openSpecContext || recentCommits || additionalContext) {
     chatContextAsCompletionRequest.push({
       role: 'user',
       content: contextMsg
@@ -199,6 +200,12 @@ export async function generateCommitMsg(arg) {
             throw new Error('Gemini API Key not configured');
           }
           commitMessage = await GeminiAPI(messages);
+        } else if (aiProvider === 'poe') {
+          const poeApiKey = configManager.getConfig<string>(ConfigKeys.POE_API_KEY);
+          if (!poeApiKey) {
+            throw new Error('Poe API Key not configured');
+          }
+          commitMessage = await PoeChatAPI(messages as ChatCompletionMessageParam[]);
         } else {
           const openaiApiKey = configManager.getConfig<string>(ConfigKeys.OPENAI_API_KEY);
           if (!openaiApiKey) {
@@ -246,6 +253,8 @@ export async function generateCommitMsg(arg) {
           }
         } else if (aiProvider === 'gemini') {
           errorMessage = `Gemini API error: ${err.message}`;
+        } else if (aiProvider === 'poe') {
+          errorMessage = `Poe API error: ${err.message}`;
         } else if (err.message) {
           // If we have a specific error message, use it
           errorMessage = err.message;

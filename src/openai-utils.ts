@@ -2,6 +2,8 @@ import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources';
 import { ConfigKeys, ConfigurationManager } from './config';
 
+type ReasoningEffort = 'auto' | 'low' | 'medium' | 'high' | 'max';
+
 /**
  * Creates and returns an OpenAI configuration object.
  * @returns {Object} - The OpenAI configuration object.
@@ -74,18 +76,26 @@ export async function ChatGPTAPI(messages: ChatCompletionMessageParam[]) {
     const configManager = ConfigurationManager.getInstance();
     const model = configManager.getConfig<string>(ConfigKeys.OPENAI_MODEL, 'gpt-4o');
     const temperature = configManager.getConfig<number>(ConfigKeys.OPENAI_TEMPERATURE, 0.7);
+    const reasoningEffort = configManager.getConfig<ReasoningEffort>(ConfigKeys.REASONING_EFFORT, 'auto');
 
     console.log('OpenAI API Call Parameters:', {
       model,
       temperature,
-      messageCount: messages.length
+      messageCount: messages.length,
+      reasoningEffort
     });
 
-    const completion = await openai.chat.completions.create({
+    const completionPayload: any = {
       model,
       messages: messages as ChatCompletionMessageParam[],
       temperature
-    });
+    };
+
+    if (reasoningEffort && reasoningEffort !== 'auto') {
+      completionPayload.reasoning_effort = reasoningEffort;
+    }
+
+    const completion = await openai.chat.completions.create(completionPayload);
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {

@@ -61,15 +61,21 @@ In the VSCode settings, locate the "ai-commit" configuration options and configu
 
 | Configuration           |  Type   |       Default        |  Required   |                                                       Notes                                                        |
 | :---------------------- | :-----: | :------------------: | :---------: | :----------------------------------------------------------------------------------------------------------------: |
-| AI_PROVIDER             | string  |        openai        |     Yes      |                          Select AI provider: `openai` or `gemini`. Azure OpenAI also uses `openai`.                 |
-| OPENAI_API_KEY          | string  |         None         | Conditional |        Required when `AI_PROVIDER` is `openai` (OpenAI or Azure). [Get a key](https://platform.openai.com/account/api-keys).        |
-| OPENAI_BASE_URL         | string  |         None         |  Optional   |           Set when using Azure OpenAI or a custom endpoint, e.g. `https://{resource}.openai.azure.com/openai/deployments/{model}`.  |
-| OPENAI_MODEL            | string  |        gpt-4o        |  Optional   |               Change via the `Show Available OpenAI Models` command.                                               |
-| AZURE_API_VERSION       | string  |         None         | Conditional |                          Required only when `OPENAI_BASE_URL` targets Azure OpenAI.                                 |
-| OPENAI_TEMPERATURE      | number  |         0.7          |  Optional   |      Controls randomness (0-2). Lower values are more deterministic; higher values are more creative.              |
-| GEMINI_API_KEY          | string  |         None         | Conditional |         Required when `AI_PROVIDER` is `gemini`. [Get a key](https://makersuite.google.com/app/apikey).             |
-| GEMINI_MODEL            | string  | gemini-2.0-flash-001 |  Optional   |                       Gemini model selection is currently configuration-only.                                      |
-| GEMINI_TEMPERATURE      | number  |         0.7          |  Optional   | Controls randomness (0-2). Lower values are more focused; higher values are more creative.                         |
+| AI_PROVIDER             | string  |        openai        |     Yes      | Select AI provider: `openai`, `gemini`, or `poe`. Azure OpenAI also uses `openai`. |
+| OPENAI_API_KEY          | string  |         None         | Conditional | Required when `AI_PROVIDER` is `openai` (OpenAI or Azure). [Get a key](https://platform.openai.com/account/api-keys). |
+| OPENAI_BASE_URL         | string  |         None         |  Optional   | Set when using Azure OpenAI or a custom endpoint, e.g. `https://{resource}.openai.azure.com/openai/deployments/{model}`. |
+| OPENAI_MODEL            | string  |        gpt-4o        |  Optional   | Change via the `Show Available OpenAI Models` command. |
+| AZURE_API_VERSION       | string  |         None         | Conditional | Required only when `OPENAI_BASE_URL` targets Azure OpenAI. |
+| OPENAI_TEMPERATURE      | number  |         0.7          |  Optional   | Controls randomness (0-2). Lower values are more deterministic; higher values are more creative. |
+| GEMINI_API_KEY          | string  |         None         | Conditional | Required when `AI_PROVIDER` is `gemini`. [Get a key](https://makersuite.google.com/app/apikey). |
+| GEMINI_MODEL            | string  | gemini-2.0-flash-001 |  Optional   | Gemini model selection is currently configuration-only. |
+| GEMINI_TEMPERATURE      | number  |         0.7          |  Optional   | Controls randomness (0-2). Lower values are more focused; higher values are more creative. |
+| POE_API_KEY             | string  |         None         | Conditional | Required when `AI_PROVIDER` is `poe`. [Get a key](https://poe.com/api_key). |
+| POE_MODEL               | string  | Claude-Sonnet-4.5    |  Optional   | Select via the `Show Available Poe Models` command after authenticating. |
+| POE_TEMPERATURE         | number  |         0.7          |  Optional   | Controls randomness (0-2) for Poe chats. |
+| REASONING_EFFORT        | string  |        auto          |  Optional   | Applies when using OpenAI reasoning-ready models or Poe bots. Supported values: `auto`, `low`, `medium`, `high`, `max`. |
+| THINKING_LEVEL          | string  |        auto          |  Optional   | Poe-only. Provides a `thinking_level` extra body parameter for bots that support multi-hop reasoning. |
+| THINKING_BUDGET         | number  |          0           |  Optional   | Poe-only. Extra body parameter to increase allowed reasoning budget; 0 falls back to the provider default. |
 | AI_COMMIT_LANGUAGE      | string  |        English       |  Optional   |                         Supports 19 languages (see setting for the full list).                                     |
 | USE_GITMOJI             | boolean |         true         |  Optional   |                         Include Gitmoji in generated commit messages. Set to `false` to disable.                   |
 | AI_COMMIT_SYSTEM_PROMPT | string  |         None         |  Optional   |                    Override the default prompt; leave blank to use the built-in template.                          |

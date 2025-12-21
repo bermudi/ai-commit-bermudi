@@ -43,6 +43,26 @@ export class CommandManager {
         await config.update('GEMINI_MODEL', selected, vscode.ConfigurationTarget.Global);
       }
     });
+
+    // Show available Poe models
+    this.registerCommand('ai-commit-bermudi.showAvailablePoeModels', async () => {
+      const configManager = ConfigurationManager.getInstance();
+      const models = await configManager.getAvailablePoeModels();
+
+      if (!models.length) {
+        vscode.window.showInformationMessage('No Poe models available. Please verify your Poe API key.');
+        return;
+      }
+
+      const selected = await vscode.window.showQuickPick(models, {
+        placeHolder: 'Please select a Poe model'
+      });
+
+      if (selected) {
+        const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
+        await config.update('POE_MODEL', selected, vscode.ConfigurationTarget.Global);
+      }
+    });
   }
 
   private registerCommand(command: string, handler: (...args: any[]) => any) {
