@@ -3,14 +3,14 @@ import { ChatCompletionMessageParam } from 'openai/resources';
 import { ConfigKeys, ConfigurationManager } from './config';
 import { deriveReasoningEffortFromMode, ReasoningEffort, ReasoningMode } from './reasoning-utils';
 
-const REASONING_MODEL_HINTS = ['gpt-5', 'o1', 'o3'];
+const REASONING_MODEL_PATTERNS = [/^gpt-5(\.|$)/i, /^o[1-4](\.|$)/i];
 
 function isReasoningModel(model?: string) {
   if (!model) {
     return false;
   }
-  const normalized = model.toLowerCase();
-  return REASONING_MODEL_HINTS.some((hint) => normalized.includes(hint));
+  const normalized = model.trim();
+  return REASONING_MODEL_PATTERNS.some((pattern) => pattern.test(normalized));
 }
 
 function normalizeReasoningEffortForModel(model: string | undefined, effort?: ReasoningEffort) {
