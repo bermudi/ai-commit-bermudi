@@ -73,9 +73,7 @@ In the VSCode settings, locate the "ai-commit" configuration options and configu
 | POE_API_KEY             | string  |         None         | Conditional | Required when `AI_PROVIDER` is `poe`. [Get a key](https://poe.com/api_key). |
 | POE_MODEL               | string  | Claude-Sonnet-4.5    |  Optional   | Select via the `Show Available Poe Models` command after authenticating. |
 | POE_TEMPERATURE         | number  |         0.7          |  Optional   | Controls randomness (0-2) for Poe chats. |
-| REASONING_EFFORT        | string  |        auto          |  Optional   | Applies when using OpenAI reasoning-ready models or Poe bots. Supported values: `auto`, `low`, `medium`, `high`, `max`. |
-| THINKING_LEVEL          | string  |        auto          |  Optional   | Poe-only. Provides a `thinking_level` extra body parameter for bots that support multi-hop reasoning. |
-| THINKING_BUDGET         | number  |          0           |  Optional   | Poe-only. Extra body parameter to increase allowed reasoning budget; 0 falls back to the provider default. |
+| REASONING_MODE          | string  |      balanced        |  Optional   | Single control for all providers: `auto`, `fast`, `balanced`, `deep`. Overrides map to provider-specific knobs. |
 | AI_COMMIT_LANGUAGE      | string  |        English       |  Optional   |                         Supports 19 languages (see setting for the full list).                                     |
 | USE_GITMOJI             | boolean |         true         |  Optional   |                         Include Gitmoji in generated commit messages. Set to `false` to disable.                   |
 | AI_COMMIT_SYSTEM_PROMPT | string  |         None         |  Optional   |                    Override the default prompt; leave blank to use the built-in template.                          |

@@ -1,15 +1,26 @@
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources';
 import { ConfigKeys, ConfigurationManager } from './config';
+import {
+  deriveReasoningEffortFromMode,
+  deriveThinkingBudget,
+  deriveThinkingLevelFromMode,
+  ReasoningMode
+} from './reasoning-utils';
 
 const POE_BASE_URL = 'https://api.poe.com/v1';
-
-type ReasoningEffort = 'auto' | 'low' | 'medium' | 'high' | 'max';
 
 interface PoeConfig {
   apiKey: string;
   baseURL: string;
 }
+
+interface PoeModelMetadata {
+  id: string;
+  raw: any;
+}
+
+let cachedPoeModels: PoeModelMetadata[] | null = null;
 
 function getPoeConfig(): PoeConfig {
   const configManager = ConfigurationManager.getInstance();
@@ -37,37 +48,70 @@ export function createPoeApi() {
   });
 }
 
-export async function listAvailablePoeModels(): Promise<string[]> {
-  try {
-    const config = getPoeConfig();
-    console.log('Fetching available Poe models...');
+async function fetchPoeModels(): Promise<PoeModelMetadata[]> {
+  const config = getPoeConfig();
+  console.log('Fetching available Poe models...');
 
-    const response = await fetch(`${config.baseURL}/models`, {
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        Accept: 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      const errorPayload = await response.text();
-      console.error('Poe models API error:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorPayload
-      });
-      throw new Error(`Poe models.list failed: ${response.status} ${response.statusText}`);
+  const response = await fetch(`${config.baseURL}/models`, {
+    headers: {
+      Authorization: `Bearer ${config.apiKey}`,
+      Accept: 'application/json'
     }
+  });
 
-    const payload = await response.json();
-    const models: string[] = (payload?.data || []).map((model: any) => String(model.id));
-
-    console.log(`Found ${models.length} available Poe models`);
-    return Array.from(new Set(models)).sort();
-  } catch (error) {
-    console.error('Failed to fetch Poe models:', error);
-    throw error;
+  if (!response.ok) {
+    const errorPayload = await response.text();
+    console.error('Poe models API error:', {
+      status: response.status,
+      statusText: response.statusText,
+      body: errorPayload
+    });
+    throw new Error(`Poe models.list failed: ${response.status} ${response.statusText}`);
   }
+
+  const payload = await response.json();
+  const models: PoeModelMetadata[] = (payload?.data || []).map((model: any) => ({
+    id: String(model.id),
+    raw: model
+  }));
+
+  console.log(`Found ${models.length} available Poe models`);
+  cachedPoeModels = models;
+  return models;
+}
+
+function extractMaxThinkingBudget(modelInfo?: PoeModelMetadata): number | undefined {
+  if (!modelInfo?.raw) {
+    return undefined;
+  }
+  const raw = modelInfo.raw;
+  return (
+    raw?.metadata?.max_thinking_budget ??
+    raw?.metadata?.thinking_budget?.max ??
+    raw?.parameters?.thinking_budget?.max ??
+    raw?.limits?.thinking_budget?.max ??
+    raw?.capabilities?.reasoning?.thinking_budget?.max
+  );
+}
+
+async function getPoeModelMetadata(modelId: string): Promise<PoeModelMetadata | undefined> {
+  if (!cachedPoeModels) {
+    await fetchPoeModels();
+  }
+
+  const match = cachedPoeModels?.find((model) => model.id === modelId);
+  if (match) {
+    return match;
+  }
+
+  // Cache miss – refetch to ensure we have the latest catalog before giving up.
+  await fetchPoeModels();
+  return cachedPoeModels?.find((model) => model.id === modelId);
+}
+
+export async function listAvailablePoeModels(): Promise<string[]> {
+  const models = await fetchPoeModels();
+  return Array.from(new Set(models.map((model) => model.id))).sort();
 }
 
 export async function PoeChatAPI(messages: ChatCompletionMessageParam[]) {
@@ -77,15 +121,20 @@ export async function PoeChatAPI(messages: ChatCompletionMessageParam[]) {
     const configManager = ConfigurationManager.getInstance();
     const model = configManager.getConfig<string>(ConfigKeys.POE_MODEL, 'Claude-Sonnet-4.5');
     const temperature = configManager.getConfig<number>(ConfigKeys.POE_TEMPERATURE, 0.7);
-    const reasoningEffort = configManager.getConfig<ReasoningEffort>(ConfigKeys.REASONING_EFFORT, 'auto');
-    const thinkingLevel = configManager.getConfig<string>(ConfigKeys.THINKING_LEVEL, 'auto');
-    const thinkingBudget = configManager.getConfig<number>(ConfigKeys.THINKING_BUDGET, 0);
+    const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
+
+    const reasoningEffort = deriveReasoningEffortFromMode(reasoningMode);
+    const thinkingLevel = deriveThinkingLevelFromMode(reasoningMode);
+
+    const modelMetadata = await getPoeModelMetadata(model);
+    const maxThinkingBudget = extractMaxThinkingBudget(modelMetadata);
+    const thinkingBudget = deriveThinkingBudget(reasoningMode, maxThinkingBudget);
 
     const extraBody: Record<string, string | number> = {};
-    if (reasoningEffort && reasoningEffort !== 'auto') {
+    if (reasoningEffort) {
       extraBody.reasoning_effort = reasoningEffort;
     }
-    if (thinkingLevel && thinkingLevel !== 'auto') {
+    if (thinkingLevel) {
       extraBody.thinking_level = thinkingLevel;
     }
     if (thinkingBudget && thinkingBudget > 0) {
@@ -96,9 +145,11 @@ export async function PoeChatAPI(messages: ChatCompletionMessageParam[]) {
       model,
       temperature,
       messageCount: messages.length,
+      reasoningMode,
       reasoningEffort,
       thinkingLevel,
-      thinkingBudget
+      thinkingBudget,
+      maxThinkingBudget
     });
 
     const completion = await poe.chat.completions.create({

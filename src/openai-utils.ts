@@ -1,8 +1,38 @@
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources';
 import { ConfigKeys, ConfigurationManager } from './config';
+import { deriveReasoningEffortFromMode, ReasoningEffort, ReasoningMode } from './reasoning-utils';
 
-type ReasoningEffort = 'auto' | 'low' | 'medium' | 'high' | 'max';
+const REASONING_MODEL_HINTS = ['gpt-5', 'o1', 'o3'];
+
+function isReasoningModel(model?: string) {
+  if (!model) {
+    return false;
+  }
+  const normalized = model.toLowerCase();
+  return REASONING_MODEL_HINTS.some((hint) => normalized.includes(hint));
+}
+
+function normalizeReasoningEffortForModel(model: string | undefined, effort?: ReasoningEffort) {
+  if (!model || !effort) {
+    return undefined;
+  }
+
+  const normalized = model.toLowerCase();
+  if (normalized.includes('gpt-5-pro')) {
+    return 'high';
+  }
+
+  return effort;
+}
+
+function deriveOpenAIReasoningEffort(model: string | undefined, mode: ReasoningMode) {
+  if (!isReasoningModel(model)) {
+    return undefined;
+  }
+  const baseEffort = deriveReasoningEffortFromMode(mode);
+  return normalizeReasoningEffortForModel(model, baseEffort);
+}
 
 /**
  * Creates and returns an OpenAI configuration object.
@@ -76,12 +106,14 @@ export async function ChatGPTAPI(messages: ChatCompletionMessageParam[]) {
     const configManager = ConfigurationManager.getInstance();
     const model = configManager.getConfig<string>(ConfigKeys.OPENAI_MODEL, 'gpt-4o');
     const temperature = configManager.getConfig<number>(ConfigKeys.OPENAI_TEMPERATURE, 0.7);
-    const reasoningEffort = configManager.getConfig<ReasoningEffort>(ConfigKeys.REASONING_EFFORT, 'auto');
+    const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
+    const reasoningEffort = deriveOpenAIReasoningEffort(model, reasoningMode);
 
     console.log('OpenAI API Call Parameters:', {
       model,
       temperature,
       messageCount: messages.length,
+      reasoningMode,
       reasoningEffort
     });
 
@@ -91,7 +123,7 @@ export async function ChatGPTAPI(messages: ChatCompletionMessageParam[]) {
       temperature
     };
 
-    if (reasoningEffort && reasoningEffort !== 'auto') {
+    if (reasoningEffort) {
       completionPayload.reasoning_effort = reasoningEffort;
     }
 

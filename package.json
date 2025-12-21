@@ -206,27 +206,16 @@
           "maximum": 2,
           "description": "Gemini temperature setting (0-2). Controls randomness."
         },
-        "ai-commit-bermudi.REASONING_EFFORT": {
+        "ai-commit-bermudi.REASONING_MODE": {
           "type": "string",
-          "default": "auto",
-          "description": "Preferred reasoning effort for providers that support advanced reasoning (OpenAI reasoning models, Poe bots). Use 'auto' to defer to the provider. Supported values include low, medium, high.",
+          "default": "balanced",
           "enum": [
             "auto",
-            "low",
-            "medium",
-            "high",
-            "max"
-          ]
-        },
-        "ai-commit-bermudi.THINKING_LEVEL": {
-          "type": "string",
-          "default": "auto",
-          "description": "Thinking level hint for Poe bots that expose multi-step reasoning controls (e.g., low, medium, high). Use 'auto' to leave unspecified."
-        },
-        "ai-commit-bermudi.THINKING_BUDGET": {
-          "type": "number",
-          "default": 0,
-          "description": "Thinking budget for Poe bots that support it. Set to 0 to allow the provider default. Positive integers increase reasoning time."
+            "fast",
+            "balanced",
+            "deep"
+          ],
+          "description": "Single reasoning control for all providers. 'auto' lets providers decide. 'fast' prioritizes speed, 'balanced' mixes cost + quality, 'deep' maximizes reasoning depth."
         }
       },
       "title": "AI Commit"
