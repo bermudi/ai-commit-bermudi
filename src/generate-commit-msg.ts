@@ -153,6 +153,8 @@ export async function generateCommitMsg(arg) {
       const repo = await getRepo(arg);
 
       const aiProvider = configManager.getConfig<string>(ConfigKeys.AI_PROVIDER, 'openai');
+      const includeOpenSpecContext = configManager.getConfig<boolean>(ConfigKeys.ENABLE_OPEN_SPEC_CONTEXT, true);
+      const includeRecentCommitsContext = configManager.getConfig<boolean>(ConfigKeys.ENABLE_RECENT_COMMITS_CONTEXT, true);
 
       progress.report({ message: 'Gathering Git changes...' });
       const { diff, source: diffSource } = await getChanges(repo);
@@ -166,8 +168,8 @@ export async function generateCommitMsg(arg) {
       const additionalContext = scmInputBox.value.trim();
       const branchName = await getBranchName(repo);
       const repoRoot = repo.rootUri.fsPath;
-      const openSpecContext = await getOpenSpecContext(repoRoot);
-      const recentCommits = await getRecentCommits(repo);
+      const openSpecContext = includeOpenSpecContext ? await getOpenSpecContext(repoRoot) : '';
+      const recentCommits = includeRecentCommitsContext ? await getRecentCommits(repo) : '';
 
       progress.report({
         message: additionalContext
