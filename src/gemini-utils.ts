@@ -1,5 +1,7 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI, Content } from '@google/genai';
 import { ConfigKeys, ConfigurationManager } from './config';
+
+let cachedClient: GoogleGenAI | null = null;
 
 /**
  * Creates and returns a Gemini API configuration object.
@@ -34,11 +36,60 @@ function getGeminiConfig() {
 
 /**
  * Creates and returns a Gemini API instance.
- * @returns {GoogleGenerativeAI} - The Gemini API instance.
+ * @returns {GoogleGenAI} - The Gemini API instance.
  */
 export function createGeminiAPIClient() {
+  if (cachedClient) {
+    return cachedClient;
+  }
   const config = getGeminiConfig();
-  return new GoogleGenerativeAI(config.apiKey);
+  cachedClient = new GoogleGenAI({ apiKey: config.apiKey });
+  return cachedClient;
+}
+
+function normalizeContent(content: any): string {
+  if (typeof content === 'string') {
+    return content;
+  }
+
+  if (Array.isArray(content)) {
+    return content
+      .map((part) => {
+        if (typeof part === 'string') {
+          return part;
+        }
+        if (part?.type === 'text' && typeof part.text === 'string') {
+          return part.text;
+        }
+        return JSON.stringify(part);
+      })
+      .join('\n');
+  }
+
+  if (typeof content === 'object' && content !== null) {
+    if (content.type === 'text' && typeof content.text === 'string') {
+      return content.text;
+    }
+    return JSON.stringify(content);
+  }
+
+  return String(content ?? '');
+}
+
+function convertMessagesToContents(messages: any[]): Content[] {
+  return messages
+    .map((message) => {
+      const text = normalizeContent(message.content);
+      if (!text) {
+        return undefined;
+      }
+      const role = message.role === 'assistant' ? 'model' : 'user';
+      return {
+        role,
+        parts: [{ text }]
+      } as Content;
+    })
+    .filter((content): content is Content => Boolean(content));
 }
 
 /**
@@ -60,19 +111,26 @@ export async function GeminiAPI(messages: any[]) {
       messageCount: messages.length
     });
 
-    const model = gemini.getGenerativeModel({ model: modelName });
-    const chat = model.startChat({
-      generationConfig: {
-        temperature: temperature,
-      },
+    const contents = convertMessagesToContents(messages);
+    if (!contents.length) {
+      throw new Error('No valid messages to send to Gemini');
+    }
+
+    console.log('Sending content to Gemini (first 100 chars):', contents.map(c => c.parts?.map(p => p.text).join(' ')).join('\n').substring(0, 100));
+
+    const result = await gemini.models.generateContent({
+      model: modelName,
+      contents,
+      config: {
+        temperature
+      }
     });
 
-    const content = messages.map(msg => msg.content).join('\n');
-    console.log('Sending content to Gemini (first 100 chars):', content.substring(0, 100));
-
-    const result = await chat.sendMessage(content);
-    const response = result.response;
-    const text = response.text();
+    const text =
+      result?.text ||
+      result?.candidates?.map(candidate =>
+        candidate.content?.parts?.map(part => part.text).join('\n')
+      ).join('\n');
 
     if (!text) {
       throw new Error('Gemini returned empty content');
@@ -111,36 +169,22 @@ export async function GeminiAPI(messages: any[]) {
  */
 export async function listAvailableGeminiModels(): Promise<string[]> {
   try {
-    const apiKey = getGeminiConfig().apiKey;
+    const gemini = createGeminiAPIClient();
 
-    console.log('Fetching available Gemini models...');
+    console.log('Fetching available Gemini models via SDK...');
 
-    // Use direct API call to list models
-    const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000',
-      {
-        headers: {
-          'x-goog-api-key': apiKey
-        }
-      }
-    );
+    const response: any = await gemini.models.list();
+    const models = response?.models ?? response ?? [];
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Gemini models API error:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText
-      });
-      throw new Error(`Gemini models.list failed: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    const modelNames: string[] = (data.models || [])
+    const modelNames: string[] = models
       .filter((model: any) =>
-        (model.supportedGenerationMethods || []).includes('generateContent')
+        (model?.supportedGenerationMethods || []).includes('generateContent')
       )
-      .map((model: any) => String(model.name).replace(/^models\//, ''));
+      .map((model: any) => {
+        const name = model?.name ?? model?.model ?? model?.id ?? '';
+        return String(name).replace(/^models\//, '');
+      })
+      .filter(Boolean);
 
     console.log(`Found ${modelNames.length} available Gemini models`);
     return Array.from(new Set(modelNames)).sort();
