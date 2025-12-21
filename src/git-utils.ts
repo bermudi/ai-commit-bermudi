@@ -1,12 +1,21 @@
-import simpleGit from 'simple-git';
+import * as fs from 'fs-extra';
+import * as path from 'path';
+import simpleGit, { SimpleGit } from 'simple-git';
 import * as vscode from 'vscode';
+
+type DiffSource = 'staged' | 'unstaged';
+
+export interface ChangesResult {
+  diff: string;
+  source: DiffSource;
+}
 
 /**
  * Retrieves the current branch name.
  */
 export async function getBranchName(repo: any): Promise<string | undefined> {
   try {
-    const rootPath = repo?.rootUri?.fsPath || vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    const rootPath = resolveRootPath(repo);
     if (!rootPath) return undefined;
 
     const git = simpleGit(rootPath);
@@ -19,36 +28,28 @@ export async function getBranchName(repo: any): Promise<string | undefined> {
 }
 
 /**
- * Retrieves the staged changes from the Git repository.
+ * Retrieves the repository changes, including untracked files when unstaged changes are used.
  */
-export async function getDiffStaged(
-  repo: any
-): Promise<{ diff: string; error?: string }> {
+export async function getChanges(repo: any): Promise<ChangesResult> {
   try {
-    const rootPath =
-      repo?.rootUri?.fsPath || vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    const { git, rootPath } = await prepareGit(repo);
 
-    if (!rootPath) {
-      throw new Error('No workspace folder found');
+    const stagedDiff = (await git.diff(['--staged']))?.trim();
+    if (stagedDiff) {
+      return { diff: stagedDiff, source: 'staged' };
     }
 
-    console.log(`Getting staged diff for path: ${rootPath}`);
-    const git = simpleGit(rootPath);
+    const workingDiff = (await git.diff())?.trim() ?? '';
+    const untrackedDiff = await collectUntrackedDiff(git, rootPath);
+    const combinedDiff = [workingDiff, untrackedDiff].filter(Boolean).join('\n').trim();
 
-    // Check if this is a valid git repository
-    const isRepo = await git.checkIsRepo();
-    if (!isRepo) {
-      throw new Error('Not a Git repository');
+    if (!combinedDiff) {
+      throw new Error('No changes available to analyze');
     }
 
-    const diff = await git.diff(['--staged']);
-
-    return {
-      diff: diff || 'No changes staged.',
-      error: null
-    };
+    return { diff: combinedDiff, source: 'unstaged' };
   } catch (error) {
-    console.error('Error reading Git staged diff:', {
+    console.error('Error reading Git changes:', {
       error,
       message: error.message,
       stack: error.stack,
@@ -56,68 +57,140 @@ export async function getDiffStaged(
       workspaceFolders: vscode.workspace.workspaceFolders?.map(f => f.uri.fsPath)
     });
 
-    // Provide more specific error messages
-    let errorMessage = error.message;
-    if (error.message.includes('not a git repository')) {
-      errorMessage = 'This folder is not a Git repository. Please initialize Git first.';
-    } else if (error.message.includes('permission denied')) {
-      errorMessage = 'Permission denied accessing Git repository. Check file permissions.';
-    } else if (error.message.includes('ENOTFOUND') || error.message.includes('network')) {
-      errorMessage = 'Network error accessing Git repository.';
-    }
-
-    return { diff: '', error: errorMessage };
+    throw new Error(mapGitErrorMessage(error));
   }
 }
 
 /**
- * Retrieves the unstaged (working tree) changes from the Git repository.
+ * Returns a formatted snippet containing the most recent commits.
  */
-export async function getDiffWorkingTree(
-  repo: any
-): Promise<{ diff: string; error?: string }> {
+export async function getRecentCommits(repo: any, limit = 5): Promise<string> {
   try {
-    const rootPath =
-      repo?.rootUri?.fsPath || vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    const { git } = await prepareGit(repo);
+    const log = await git.log({ n: limit });
 
-    if (!rootPath) {
-      throw new Error('No workspace folder found');
+    if (!log?.all?.length) {
+      return '';
     }
 
-    console.log(`Getting working tree diff for path: ${rootPath}`);
-    const git = simpleGit(rootPath);
-
-    // Check if this is a valid git repository
-    const isRepo = await git.checkIsRepo();
-    if (!isRepo) {
-      throw new Error('Not a Git repository');
-    }
-
-    const diff = await git.diff();
-
-    return {
-      diff: diff || 'No unstaged changes.',
-      error: null
-    };
+    return log.all
+      .slice(0, limit)
+      .map(entry => `- ${entry.hash.slice(0, 7)} ${entry.message}`)
+      .join('\n');
   } catch (error) {
-    console.error('Error reading Git working tree diff:', {
-      error,
-      message: error.message,
-      stack: error.stack,
-      repo: repo?.rootUri?.fsPath,
-      workspaceFolders: vscode.workspace.workspaceFolders?.map(f => f.uri.fsPath)
-    });
-
-    // Provide more specific error messages
-    let errorMessage = error.message;
-    if (error.message.includes('not a git repository')) {
-      errorMessage = 'This folder is not a Git repository. Please initialize Git first.';
-    } else if (error.message.includes('permission denied')) {
-      errorMessage = 'Permission denied accessing Git repository. Check file permissions.';
-    } else if (error.message.includes('ENOTFOUND') || error.message.includes('network')) {
-      errorMessage = 'Network error accessing Git repository.';
-    }
-
-    return { diff: '', error: errorMessage };
+    console.warn('Failed to get recent commits:', error);
+    return '';
   }
 }
+
+function resolveRootPath(repo: any): string {
+  const rootPath =
+    repo?.rootUri?.fsPath || vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+  if (!rootPath) {
+    throw new Error('No workspace folder found');
+  }
+
+  return rootPath;
+}
+
+async function prepareGit(repo: any): Promise<{ git: SimpleGit; rootPath: string }> {
+  const rootPath = resolveRootPath(repo);
+  console.log(`Preparing git client for path: ${rootPath}`);
+  const git = simpleGit(rootPath);
+  const isRepo = await git.checkIsRepo();
+
+  if (!isRepo) {
+    throw new Error('Not a Git repository');
+  }
+
+  return { git, rootPath };
+}
+
+async function collectUntrackedDiff(git: SimpleGit, rootPath: string): Promise<string> {
+  try {
+    const rawList = await git.raw(['ls-files', '--others', '--exclude-standard']);
+    const untrackedFiles = rawList
+      .split('\n')
+      .map(file => file.trim())
+      .filter(Boolean);
+
+    if (!untrackedFiles.length) {
+      return '';
+    }
+
+    const diffs: string[] = [];
+    for (const relativePath of untrackedFiles) {
+      const absolutePath = path.join(rootPath, relativePath);
+      let buffer: Buffer;
+
+      try {
+        buffer = await fs.readFile(absolutePath);
+      } catch (error) {
+        console.warn(`Failed to read untracked file ${relativePath}:`, error);
+        diffs.push(
+          [
+            `diff --git a/${relativePath} b/${relativePath}`,
+            '--- /dev/null',
+            `+++ b/${relativePath}`,
+            '@@',
+            '+ [Unable to read file contents]'
+          ].join('\n')
+        );
+        continue;
+      }
+
+      const isBinary = buffer.includes(0);
+      const body = isBinary
+        ? '+ [binary file content not shown]'
+        : formatFileBody(buffer.toString('utf8'));
+
+      diffs.push(
+        [
+          `diff --git a/${relativePath} b/${relativePath}`,
+          'new file mode 100644',
+          '--- /dev/null',
+          `+++ b/${relativePath}`,
+          '@@',
+          body,
+          ''
+        ].join('\n')
+      );
+    }
+
+    return diffs.join('\n').trim();
+  } catch (error) {
+    console.warn('Failed to list untracked files:', error);
+    return '';
+  }
+}
+
+function formatFileBody(contents: string): string {
+  const normalized = contents.replace(/\r\n/g, '\n');
+  const lines = normalized.split('\n');
+
+  if (lines.length === 0) {
+    return '+';
+  }
+
+  return lines.map(line => `+ ${line}`).join('\n');
+}
+
+function mapGitErrorMessage(error: any): string {
+  const message = error?.message || 'Unknown Git error occurred';
+
+  if (/not a git repository/i.test(message)) {
+    return 'This folder is not a Git repository. Please initialize Git first.';
+  }
+
+  if (/permission denied/i.test(message)) {
+    return 'Permission denied accessing Git repository. Check file permissions.';
+  }
+
+  if (message.includes('ENOTFOUND') || message.includes('network')) {
+    return 'Network error accessing Git repository.';
+  }
+
+  return message;
+}
+
