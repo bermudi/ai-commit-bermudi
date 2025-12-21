@@ -8,6 +8,7 @@ import {
   deriveThinkingLevelFromMode,
   ReasoningMode
 } from '../src/reasoning-utils';
+import { isReasoningModel } from '../src/openai-utils';
 
 /**
  * Provider smoke test runner.
@@ -30,9 +31,9 @@ const DEFAULT_MESSAGES: ChatCompletionMessageParam[] = [
 ];
 
 // Centralized model + temperature configuration so you can tweak everything quickly.
-const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash-001';
-const POE_MODEL = process.env.POE_MODEL || 'Claude-Sonnet-4.5';
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5-nano';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
+const POE_MODEL = process.env.POE_MODEL || 'gpt-5-nano';
 const OPENAI_TEMPERATURE = Number(process.env.OPENAI_TEMPERATURE ?? '0.7');
 const GEMINI_TEMPERATURE = Number(process.env.GEMINI_TEMPERATURE ?? '0.7');
 const POE_TEMPERATURE = Number(process.env.POE_TEMPERATURE ?? '0.7');
@@ -111,7 +112,10 @@ async function testOpenAI(reasoningMode: ReasoningMode): Promise<TestResult> {
 
   const model = OPENAI_MODEL;
   const temperature = OPENAI_TEMPERATURE;
-  const reasoningEffort = normalizeOpenAIReasoningEffort(deriveReasoningEffortFromMode(reasoningMode));
+  const derivedEffort = deriveReasoningEffortFromMode(reasoningMode);
+  const reasoningEffort = isReasoningModel(model)
+    ? normalizeOpenAIReasoningEffort(derivedEffort)
+    : undefined;
 
   try {
     const openai = new OpenAI(config);

@@ -3,9 +3,9 @@ import { ChatCompletionMessageParam } from 'openai/resources';
 import { ConfigKeys, ConfigurationManager } from './config';
 import { deriveReasoningEffortFromMode, ReasoningEffort, ReasoningMode } from './reasoning-utils';
 
-const REASONING_MODEL_PATTERNS = [/^gpt-5(\.|$)/i, /^o[1-4](\.|$)/i];
+export const REASONING_MODEL_PATTERNS = [/^gpt-5(\.|$)/i, /^o[1-4](\.|$)/i];
 
-function isReasoningModel(model?: string) {
+export function isReasoningModel(model?: string) {
   if (!model) {
     return false;
   }
