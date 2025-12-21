@@ -6,7 +6,7 @@
 
 <h1>AI Commit (bermudi fork)</h1>
 
-Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review Git changes, generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent. Fork uses [Conventional Commits 1.0.1 unofficial specification](https://github.com/bermudi/conventional-commits-unofficial).
+Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review Git changes, generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent. Fork uses [Conventional Commits 2.0.0 unofficial specification](https://github.com/bermudi/conventional-commits-unofficial).
 
 **English** · [Report Bug][github-issues-link] · [Request Feature][github-issues-link]
 
@@ -30,7 +30,7 @@ Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review Git changes, generat
 - 🗺️ Support multi-language commit messages.
 - 😜 Support adding Gitmoji.
 - 🛠️ Support custom system prompt.
-- 📝 Support Conventional Commits specification.
+- 📝 Support Conventional Commits 2.0.0 (optimized for **OpenSpec** and AI workflows).
 
 ## 📦 Installation
 
@@ -139,3 +139,4 @@ This project is [MIT](./LICENSE) licensed.
 [total-installs-shield]: https://img.shields.io/vscode-marketplace/d/bermudi.ai-commit-bermudi.svg?&color=greeen&labelColor=black&style=flat-square
 [avarage-rating-link]: https://marketplace.visualstudio.com/items?itemName=bermudi.ai-commit-bermudi
 [avarage-rating-shield]: https://img.shields.io/vscode-marketplace/r/bermudi.ai-commit-bermudi.svg?&color=green&labelColor=black&style=flat-square
+--- END OF FILE README.md ---

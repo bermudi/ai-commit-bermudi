@@ -1,8 +1,8 @@
 {
   "name": "ai-commit-bermudi",
   "displayName": "AI Commit (bermudi fork)",
-  "description": "Use Azure/OpenAI API to review Git changes, generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent.",
-  "version": "0.3.1",
+  "description": "Use Azure/OpenAI/Gemini to generate conventional commit messages (v1.0.2). Optimized for AI-Agent workflows (OpenSpec) and Gitmoji.",
+  "version": "0.4.0",
   "engines": {
     "node": ">=16",
     "vscode": "^1.77.0"
@@ -21,7 +21,8 @@
     "Commit Message",
     "Commit Message Generator",
     "AI Commit",
-    "Auto Commit"
+    "Auto Commit",
+    "OpenSpec"
   ],
   "publisher": "bermudi",
   "repository": "https://github.com/bermudi/ai-commit-bermudi",

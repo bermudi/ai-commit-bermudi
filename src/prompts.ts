@@ -31,7 +31,11 @@ const loadMarkdownPrompt = async (useGitmoji: boolean): Promise<string> => {
 };
 
 const composePromptFromMarkdown = (language: string, markdown: string): string => {
-  const langHeader = `Your role is to respond with a "Conventional Commit" in ${language} to the diffs you receive. No comment, no explanations, no questions, nothing. Only the commit message. \n\n`;
+  // Logic Update: Explicitly reference v1.0.2 and OpenSpec context in the system header
+  // to override model training bias towards older spec versions.
+  const langHeader = `Your role is to respond with a "Conventional Commit v1.0.2 (OpenSpec/AI-Optimized)" in ${language} to the diffs you receive.
+Strictly follow the rules for 'spec' types, 'impl' scopes, and 'Spec-Ref' footers.
+No comment, no explanations, no questions, nothing. Only the commit message. \n\n`;
   return `${langHeader}${markdown}`;
 };
 
@@ -47,8 +51,10 @@ export const getMainCommitPrompt = async () => {
   const rawCustomPrompt = configManager.getConfig<string>(ConfigKeys.SYSTEM_PROMPT);
   const rawAppendPrompt = configManager.getConfig<string>(ConfigKeys.SYSTEM_APPEND);
 
-  const customPrompt = rawCustomPrompt && rawCustomPrompt.trim().length > 0 ? rawCustomPrompt : undefined;
-  const appendPrompt = rawAppendPrompt && rawAppendPrompt.trim().length > 0 ? rawAppendPrompt : undefined;
+  const customPrompt =
+    rawCustomPrompt && rawCustomPrompt.trim().length > 0 ? rawCustomPrompt : undefined;
+  const appendPrompt =
+    rawAppendPrompt && rawAppendPrompt.trim().length > 0 ? rawAppendPrompt : undefined;
 
   if (customPrompt) {
     // If there's a custom prompt, use it and append any additional text if provided
