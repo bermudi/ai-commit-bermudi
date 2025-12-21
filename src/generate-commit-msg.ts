@@ -3,7 +3,7 @@ import * as path from 'path'; // Added path import
 import { ChatCompletionMessageParam } from 'openai/resources';
 import * as vscode from 'vscode';
 import { ConfigKeys, ConfigurationManager } from './config';
-import { getDiffStaged, getDiffWorkingTree, getBranchName } from './git-utils'; // Added getBranchName
+import { getBranchName, getChanges, getRecentCommits } from './git-utils'; // Added getBranchName
 import { ChatGPTAPI } from './openai-utils';
 import { getMainCommitPrompt } from './prompts';
 import { ProgressHandler } from './utils';
@@ -47,7 +47,8 @@ const generateCommitMessageChatCompletionPrompt = async (
   diff: string,
   additionalContext: string | undefined,
   branchName: string | undefined,
-  openSpecContext: string
+  openSpecContext: string,
+  recentCommits: string
 ) => {
   const INIT_MESSAGES_PROMPT = await getMainCommitPrompt();
   const chatContextAsCompletionRequest = [...INIT_MESSAGES_PROMPT];
@@ -55,6 +56,7 @@ const generateCommitMessageChatCompletionPrompt = async (
   let contextMsg = `Input Data:\n`;
   if (branchName) contextMsg += `Git Branch: ${branchName}\n`;
   if (openSpecContext) contextMsg += `${openSpecContext}\n`;
+  if (recentCommits) contextMsg += `Recent Commits:\n${recentCommits}\n`;
   if (additionalContext) contextMsg += `User Notes: ${additionalContext}\n`;
 
   if (branchName || openSpecContext || additionalContext) {
@@ -152,29 +154,8 @@ export async function generateCommitMsg(arg) {
 
       const aiProvider = configManager.getConfig<string>(ConfigKeys.AI_PROVIDER, 'openai');
 
-      progress.report({ message: 'Getting staged changes...' });
-      let { diff, error } = await getDiffStaged(repo);
-      let diffSource: 'staged' | 'unstaged' = 'staged';
-
-      if (error) {
-        throw new Error(`Failed to get staged changes: ${error}`);
-      }
-
-      if (!diff || diff === 'No changes staged.') {
-        progress.report({ message: 'No staged changes found. Checking unstaged changes...' });
-        const fallback = await getDiffWorkingTree(repo);
-
-        if (fallback.error) {
-          throw new Error(`Failed to get unstaged changes: ${fallback.error}`);
-        }
-
-        if (!fallback.diff || fallback.diff === 'No unstaged changes.') {
-          throw new Error('No changes available to analyze');
-        }
-
-        diff = fallback.diff;
-        diffSource = 'unstaged';
-      }
+      progress.report({ message: 'Gathering Git changes...' });
+      const { diff, source: diffSource } = await getChanges(repo);
 
       const scmInputBox = repo.inputBox;
       if (!scmInputBox) {
@@ -186,6 +167,7 @@ export async function generateCommitMsg(arg) {
       const branchName = await getBranchName(repo);
       const repoRoot = repo.rootUri.fsPath;
       const openSpecContext = await getOpenSpecContext(repoRoot);
+      const recentCommits = await getRecentCommits(repo);
 
       progress.report({
         message: additionalContext
@@ -197,7 +179,8 @@ export async function generateCommitMsg(arg) {
         diff,
         additionalContext,
         branchName,
-        openSpecContext
+        openSpecContext,
+        recentCommits
       );
 
       progress.report({
