@@ -2,6 +2,23 @@ import simpleGit from 'simple-git';
 import * as vscode from 'vscode';
 
 /**
+ * Retrieves the current branch name.
+ */
+export async function getBranchName(repo: any): Promise<string | undefined> {
+  try {
+    const rootPath = repo?.rootUri?.fsPath || vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    if (!rootPath) return undefined;
+
+    const git = simpleGit(rootPath);
+    const branchSummary = await git.branch();
+    return branchSummary.current;
+  } catch (error) {
+    console.warn('Failed to get branch name:', error);
+    return undefined;
+  }
+}
+
+/**
  * Retrieves the staged changes from the Git repository.
  */
 export async function getDiffStaged(

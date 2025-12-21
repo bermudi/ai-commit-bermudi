@@ -1,37 +1,72 @@
 import * as fs from 'fs-extra';
+import * as path from 'path'; // Added path import
 import { ChatCompletionMessageParam } from 'openai/resources';
 import * as vscode from 'vscode';
 import { ConfigKeys, ConfigurationManager } from './config';
-import { getDiffStaged, getDiffWorkingTree } from './git-utils';
+import { getDiffStaged, getDiffWorkingTree, getBranchName } from './git-utils'; // Added getBranchName
 import { ChatGPTAPI } from './openai-utils';
 import { getMainCommitPrompt } from './prompts';
 import { ProgressHandler } from './utils';
 import { GeminiAPI } from './gemini-utils';
 
 /**
+ * Scans the openspec directory to provide context about active specs.
+ */
+async function getOpenSpecContext(repoPath: string): Promise<string> {
+  try {
+    const changesPath = path.join(repoPath, 'openspec', 'changes');
+    if (!await fs.pathExists(changesPath)) {
+      return '';
+    }
+
+    const entries = await fs.readdir(changesPath, { withFileTypes: true });
+    // Filter for directories that are not 'archive'
+    const activeSpecs = entries
+      .filter(dirent => dirent.isDirectory() && dirent.name !== 'archive')
+      .map(dirent => `openspec/changes/${dirent.name}`);
+
+    if (activeSpecs.length === 0) return '';
+
+    return `\nActive OpenSpec Proposals (Use these paths for Spec-Ref footers if relevant):\n- ${activeSpecs.join('\n- ')}`;
+  } catch (error) {
+    console.warn('Failed to scan openspec context:', error);
+    return '';
+  }
+}
+
+/**
  * Generates a chat completion prompt for the commit message based on the provided diff.
  *
  * @param {string} diff - The diff string representing changes to be committed.
  * @param {string} additionalContext - Additional context for the changes.
+ * @param {string} branchName - The current git branch name.
+ * @param {string} openSpecContext - List of active specs.
  * @returns {Promise<Array<{ role: string, content: string }>>} - A promise that resolves to an array of messages for the chat completion.
  */
 const generateCommitMessageChatCompletionPrompt = async (
   diff: string,
-  additionalContext?: string
+  additionalContext: string | undefined,
+  branchName: string | undefined,
+  openSpecContext: string
 ) => {
   const INIT_MESSAGES_PROMPT = await getMainCommitPrompt();
   const chatContextAsCompletionRequest = [...INIT_MESSAGES_PROMPT];
 
-  if (additionalContext) {
+  let contextMsg = `Input Data:\n`;
+  if (branchName) contextMsg += `Git Branch: ${branchName}\n`;
+  if (openSpecContext) contextMsg += `${openSpecContext}\n`;
+  if (additionalContext) contextMsg += `User Notes: ${additionalContext}\n`;
+
+  if (branchName || openSpecContext || additionalContext) {
     chatContextAsCompletionRequest.push({
       role: 'user',
-      content: `Additional context for the changes:\n${additionalContext}`
+      content: contextMsg
     });
   }
 
   chatContextAsCompletionRequest.push({
     role: 'user',
-    content: diff
+    content: `Git Diff:\n${diff}`
   });
   return chatContextAsCompletionRequest;
 };
@@ -146,16 +181,23 @@ export async function generateCommitMsg(arg) {
         throw new Error('Unable to find the SCM input box');
       }
 
+      // Gather Context
       const additionalContext = scmInputBox.value.trim();
+      const branchName = await getBranchName(repo);
+      const repoRoot = repo.rootUri.fsPath;
+      const openSpecContext = await getOpenSpecContext(repoRoot);
 
       progress.report({
         message: additionalContext
           ? `Analyzing ${diffSource} changes with additional context...`
           : `Analyzing ${diffSource} changes...`
       });
+
       const messages = await generateCommitMessageChatCompletionPrompt(
         diff,
-        additionalContext
+        additionalContext,
+        branchName,
+        openSpecContext
       );
 
       progress.report({
