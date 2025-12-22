@@ -8,7 +8,6 @@ import {
   deriveThinkingLevelFromMode,
   ReasoningMode
 } from '../src/reasoning-utils';
-import { isReasoningModel } from '../src/openai-utils';
 
 /**
  * Provider smoke test runner.
@@ -16,17 +15,30 @@ import { isReasoningModel } from '../src/openai-utils';
  * This script fires the same lightweight prompt at OpenAI, Gemini, and Poe so you
  * can verify credentials, model access, and reasoning knobs (effort/thinking budget)
  * without staging a git commit inside VS Code. Configure API keys via environment
- * variables or tweak the constants below, then run `pnpm exec tsx scripts/provider-smoke-test.ts`.
+ * variables or tweak the constants below, then run:
+ *
+ *   pnpm exec tsx scripts/provider-smoke-test.ts [--provider openai] [--provider gemini] [--provider poe]
+ *
+ * Repeated `--provider` flags or comma-delimited values let you focus on specific providers.
  */
+
+type ProviderName = 'openai' | 'gemini' | 'poe';
 
 const DEFAULT_MESSAGES: ChatCompletionMessageParam[] = [
   {
     role: 'system',
-    content: 'You are a concise assistant that only produces short bullet lists.'
+    content: 'You are a logical assistant. For complex problems, think step-by-step to ensure accuracy. Your answer must be concise and direct.'
   },
   {
     role: 'user',
-    content: 'List three bullet points describing why conventional commits help teams.'
+    content: `Solve this logic puzzle:
+There are three boxes: Red, Blue, and Green. One contains a prize.
+1. The Red box says: "The prize is not in the Blue box."
+2. The Blue box says: "The prize is not here."
+3. The Green box says: "The prize is in the Red box."
+
+Exactly one of these statements is FALSE. Which box contains the prize? 
+Explain your reasoning by testing each box as a potential location.`
   }
 ];
 
@@ -34,12 +46,22 @@ const DEFAULT_MESSAGES: ChatCompletionMessageParam[] = [
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-5-nano';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3-flash-preview';
 const POE_MODEL = process.env.POE_MODEL || 'gpt-5-nano';
-const OPENAI_TEMPERATURE = Number(process.env.OPENAI_TEMPERATURE ?? '0.7');
-const GEMINI_TEMPERATURE = Number(process.env.GEMINI_TEMPERATURE ?? '0.7');
-const POE_TEMPERATURE = Number(process.env.POE_TEMPERATURE ?? '0.7');
+const OPENAI_TEMPERATURE = Number(process.env.OPENAI_TEMPERATURE ?? '1');
+const GEMINI_TEMPERATURE = Number(process.env.GEMINI_TEMPERATURE ?? '1');
+const POE_TEMPERATURE = Number(process.env.POE_TEMPERATURE ?? '1');
 
 const REASONING_MODES: ReasoningMode[] = ['auto', 'fast', 'balanced', 'deep'];
+const REASONING_MODEL_PATTERNS = [/^gpt-5(\.|$)/i, /^o[1-4](\.|$)/i];
 type OpenAIReasoningEffort = 'low' | 'medium' | 'high';
+const AVAILABLE_PROVIDERS: ProviderName[] = ['openai', 'gemini', 'poe'];
+
+function isReasoningModel(model?: string) {
+  if (!model) {
+    return false;
+  }
+  const normalized = model.trim();
+  return REASONING_MODEL_PATTERNS.some((pattern) => pattern.test(normalized));
+}
 
 function normalizeOpenAIReasoningEffort(
   effort?: ReturnType<typeof deriveReasoningEffortFromMode>
@@ -93,6 +115,59 @@ interface TestResult {
   status: 'ok' | 'skipped' | 'error';
   detail: string;
   latencyMs?: number;
+}
+
+/**
+ * Parses CLI arguments and returns the list of providers to exercise.
+ * Accepts repeated flags (`--provider openai --provider gemini`) or comma-delimited lists
+ * (`--providers openai,poe`). Defaults to all providers when no filter is given.
+ */
+function parseProviderSelection(argv: string[]): ProviderName[] {
+  const selected = new Set<ProviderName>();
+
+  const addProvidersFromValue = (raw?: string) => {
+    if (!raw) {
+      console.warn('Provider flag specified without a value; ignoring.');
+      return;
+    }
+    raw
+      .split(',')
+      .map((v) => v.trim().toLowerCase())
+      .filter((v): v is ProviderName => {
+        if ((AVAILABLE_PROVIDERS as string[]).includes(v)) {
+          return true;
+        }
+        if (v) {
+          console.warn(`Unknown provider "${v}" – supported values: ${AVAILABLE_PROVIDERS.join(', ')}`);
+        }
+        return false;
+      })
+      .forEach((provider) => selected.add(provider));
+  };
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (!arg.startsWith('-')) {
+      continue;
+    }
+
+    if (arg === '--provider' || arg === '-p' || arg === '--providers') {
+      addProvidersFromValue(argv[i + 1]);
+      i += 1;
+      continue;
+    }
+
+    if (arg.startsWith('--provider=') || arg.startsWith('--providers=')) {
+      addProvidersFromValue(arg.split('=')[1]);
+      continue;
+    }
+  }
+
+  if (!selected.size) {
+    AVAILABLE_PROVIDERS.forEach((provider) => selected.add(provider));
+  }
+
+  return Array.from(selected);
 }
 
 async function testOpenAI(reasoningMode: ReasoningMode): Promise<TestResult> {
@@ -239,13 +314,18 @@ async function testPoe(reasoningMode: ReasoningMode): Promise<TestResult> {
 
 async function main() {
   const reasoningMode = coerceReasoningMode(process.env.REASONING_MODE);
-  console.log(`Running provider smoke tests with reasoning mode: ${reasoningMode}`);
+  const selectedProviders = parseProviderSelection(process.argv.slice(2));
+  console.log(
+    `Running provider smoke tests with reasoning mode: ${reasoningMode} (providers: ${selectedProviders.join(', ')})`
+  );
 
-  const results = await Promise.all([
-    testOpenAI(reasoningMode),
-    testGemini(reasoningMode),
-    testPoe(reasoningMode)
-  ]);
+  const providerRunners: Record<ProviderName, (mode: ReasoningMode) => Promise<TestResult>> = {
+    openai: testOpenAI,
+    gemini: testGemini,
+    poe: testPoe
+  };
+
+  const results = await Promise.all(selectedProviders.map((provider) => providerRunners[provider](reasoningMode)));
 
   for (const result of results) {
     const prefix = result.status === 'ok' ? '✅' : result.status === 'skipped' ? '⚪' : '❌';
