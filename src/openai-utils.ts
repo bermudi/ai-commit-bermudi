@@ -1,9 +1,21 @@
 import OpenAI from 'openai';
-import { ChatCompletionMessageParam } from 'openai/resources';
+import { ChatCompletionMessageParam, ChatCompletionCreateParamsNonStreaming } from 'openai/resources';
 import { ConfigKeys, ConfigurationManager } from './config';
 import { deriveReasoningEffortFromMode, ReasoningEffort, ReasoningMode } from './reasoning-utils';
 
 export const REASONING_MODEL_PATTERNS = [/^gpt-5(\.|$)/i, /^o[1-4](\.|$)/i];
+
+type OpenAIModelCapabilities = {
+  temperatureUnsupported?: boolean;
+};
+
+const openAICapabilityCache = new Map<string, OpenAIModelCapabilities>();
+
+type OpenAIReasoningEffort = Extract<ReasoningEffort, 'low' | 'medium' | 'high'>;
+
+type ChatCompletionPayload = ChatCompletionCreateParamsNonStreaming & {
+  reasoning_effort?: OpenAIReasoningEffort;
+};
 
 export function isReasoningModel(model?: string) {
   if (!model) {
@@ -32,6 +44,45 @@ function deriveOpenAIReasoningEffort(model: string | undefined, mode: ReasoningM
   }
   const baseEffort = deriveReasoningEffortFromMode(mode);
   return normalizeReasoningEffortForModel(model, baseEffort);
+}
+
+function toOpenAIReasoningEffort(effort?: ReasoningEffort): OpenAIReasoningEffort | undefined {
+  if (!effort || effort === 'none') {
+    return undefined;
+  }
+
+  if (effort === 'minimal') {
+    return 'low';
+  }
+
+  if (effort === 'low' || effort === 'medium' || effort === 'high') {
+    return effort;
+  }
+
+  return undefined;
+}
+
+
+function getModelCapabilities(model: string) {
+  const key = model.trim().toLowerCase();
+  if (!openAICapabilityCache.has(key)) {
+    openAICapabilityCache.set(key, {});
+  }
+  return openAICapabilityCache.get(key)!;
+}
+
+function extractOpenAIErrorMessage(error: any) {
+  return error?.response?.data?.error?.message ?? error?.message ?? '';
+}
+
+function isUnsupportedTemperatureError(error: any) {
+  const status = error?.response?.status;
+  const message = extractOpenAIErrorMessage(error)?.toLowerCase?.() ?? '';
+  return (
+    status === 400 &&
+    message.includes('temperature') &&
+    (message.includes('unsupported') || message.includes('does not support'))
+  );
 }
 
 /**
@@ -108,6 +159,7 @@ export async function ChatGPTAPI(messages: ChatCompletionMessageParam[]) {
     const temperature = configManager.getConfig<number>(ConfigKeys.OPENAI_TEMPERATURE, 0.7);
     const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
     const reasoningEffort = deriveOpenAIReasoningEffort(model, reasoningMode);
+    const openAIReasoningEffort = toOpenAIReasoningEffort(reasoningEffort);
 
     console.log('OpenAI API Call Parameters:', {
       model,
@@ -117,17 +169,51 @@ export async function ChatGPTAPI(messages: ChatCompletionMessageParam[]) {
       reasoningEffort
     });
 
-    const completionPayload: any = {
-      model,
-      messages: messages as ChatCompletionMessageParam[],
-      temperature
-    };
-
-    if (reasoningEffort) {
-      completionPayload.reasoning_effort = reasoningEffort;
+    const resolvedModel = model || 'gpt-4o';
+    const capabilities = getModelCapabilities(resolvedModel);
+    const hasCachedTemperatureRestriction = !!capabilities.temperatureUnsupported;
+    if (hasCachedTemperatureRestriction && typeof temperature === 'number') {
+      console.log(`Skipping custom temperature for model ${model} due to cached capability info.`);
     }
 
-    const completion = await openai.chat.completions.create(completionPayload);
+    const buildCompletionPayload = (includeTemperature: boolean): ChatCompletionPayload => {
+      const payload: ChatCompletionPayload = {
+        model: resolvedModel,
+        messages: messages as ChatCompletionMessageParam[]
+      };
+
+      if (openAIReasoningEffort) {
+        payload.reasoning_effort = openAIReasoningEffort;
+      }
+
+      if (includeTemperature && typeof temperature === 'number') {
+        payload.temperature = temperature;
+      }
+
+      return payload;
+    };
+
+    const createCompletion = (includeTemperature: boolean) =>
+      openai.chat.completions.create(buildCompletionPayload(includeTemperature));
+
+    const shouldIncludeTemperature = !hasCachedTemperatureRestriction && typeof temperature === 'number';
+
+    let completion;
+    try {
+      completion = await createCompletion(shouldIncludeTemperature);
+    } catch (innerError) {
+      if (shouldIncludeTemperature && isUnsupportedTemperatureError(innerError)) {
+        capabilities.temperatureUnsupported = true;
+        console.warn('Selected OpenAI model does not support custom temperature; retrying without temperature.', {
+          model,
+          requestedTemperature: temperature,
+          message: extractOpenAIErrorMessage(innerError)
+        });
+        completion = await createCompletion(false);
+      } else {
+        throw innerError;
+      }
+    }
 
     const content = completion.choices[0]?.message?.content;
     if (!content) {
