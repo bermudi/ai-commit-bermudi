@@ -3,8 +3,6 @@ import { ChatCompletionMessageParam, ChatCompletionCreateParamsNonStreaming } fr
 import { ConfigKeys, ConfigurationManager } from './config';
 import { deriveReasoningEffortFromMode, ReasoningEffort, ReasoningMode } from './reasoning-utils';
 
-export const REASONING_MODEL_PATTERNS = [/^gpt-5(\.|$)/i, /^o[1-4](\.|$)/i];
-
 type OpenAIModelCapabilities = {
   temperatureUnsupported?: boolean;
 };
@@ -16,35 +14,6 @@ type OpenAIReasoningEffort = Extract<ReasoningEffort, 'low' | 'medium' | 'high'>
 type ChatCompletionPayload = ChatCompletionCreateParamsNonStreaming & {
   reasoning_effort?: OpenAIReasoningEffort;
 };
-
-export function isReasoningModel(model?: string) {
-  if (!model) {
-    return false;
-  }
-  const normalized = model.trim();
-  return REASONING_MODEL_PATTERNS.some((pattern) => pattern.test(normalized));
-}
-
-function normalizeReasoningEffortForModel(model: string | undefined, effort?: ReasoningEffort) {
-  if (!model || !effort) {
-    return undefined;
-  }
-
-  const normalized = model.toLowerCase();
-  if (normalized.includes('gpt-5-pro')) {
-    return 'high';
-  }
-
-  return effort;
-}
-
-function deriveOpenAIReasoningEffort(model: string | undefined, mode: ReasoningMode) {
-  if (!isReasoningModel(model)) {
-    return undefined;
-  }
-  const baseEffort = deriveReasoningEffortFromMode(mode);
-  return normalizeReasoningEffortForModel(model, baseEffort);
-}
 
 function toOpenAIReasoningEffort(effort?: ReasoningEffort): OpenAIReasoningEffort | undefined {
   if (!effort || effort === 'none') {
@@ -158,18 +127,22 @@ export async function ChatGPTAPI(messages: ChatCompletionMessageParam[]) {
     const model = configManager.getConfig<string>(ConfigKeys.OPENAI_MODEL, 'gpt-4o');
     const temperature = configManager.getConfig<number>(ConfigKeys.OPENAI_TEMPERATURE, 0.7);
     const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
-    const reasoningEffort = deriveOpenAIReasoningEffort(model, reasoningMode);
+
+    const resolvedModel = model || 'gpt-4o';
+    const isReasoningModel = /^(o1|o3|gpt-5)/i.test(resolvedModel);
+    const reasoningEffort = deriveReasoningEffortFromMode(reasoningMode);
     const openAIReasoningEffort = toOpenAIReasoningEffort(reasoningEffort);
 
     console.log('OpenAI API Call Parameters:', {
-      model,
+      model: resolvedModel,
       temperature,
       messageCount: messages.length,
       reasoningMode,
-      reasoningEffort
+      reasoningEffort,
+      parameterProfile: isReasoningModel ? 'reasoning' : 'standard'
     });
+    console.log(isReasoningModel ? 'Using Reasoning Mode parameters' : 'Using Standard parameters');
 
-    const resolvedModel = model || 'gpt-4o';
     const capabilities = getModelCapabilities(resolvedModel);
     const hasCachedTemperatureRestriction = !!capabilities.temperatureUnsupported;
     if (hasCachedTemperatureRestriction && typeof temperature === 'number') {
@@ -182,11 +155,11 @@ export async function ChatGPTAPI(messages: ChatCompletionMessageParam[]) {
         messages: messages as ChatCompletionMessageParam[]
       };
 
-      if (openAIReasoningEffort) {
-        payload.reasoning_effort = openAIReasoningEffort;
-      }
-
-      if (includeTemperature && typeof temperature === 'number') {
+      if (isReasoningModel) {
+        if (openAIReasoningEffort) {
+          payload.reasoning_effort = openAIReasoningEffort;
+        }
+      } else if (includeTemperature && typeof temperature === 'number') {
         payload.temperature = temperature;
       }
 
@@ -196,7 +169,8 @@ export async function ChatGPTAPI(messages: ChatCompletionMessageParam[]) {
     const createCompletion = (includeTemperature: boolean) =>
       openai.chat.completions.create(buildCompletionPayload(includeTemperature));
 
-    const shouldIncludeTemperature = !hasCachedTemperatureRestriction && typeof temperature === 'number';
+    const shouldIncludeTemperature =
+      !isReasoningModel && !hasCachedTemperatureRestriction && typeof temperature === 'number';
 
     let completion;
     try {

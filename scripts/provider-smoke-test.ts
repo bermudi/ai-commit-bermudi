@@ -1,13 +1,8 @@
 import 'dotenv/config';
 import OpenAI from 'openai';
 import { GoogleGenAI, type Content } from '@google/genai';
-import type { ChatCompletionMessageParam } from 'openai/resources';
-import {
-  deriveReasoningEffortFromMode,
-  deriveThinkingBudget,
-  deriveThinkingLevelFromMode,
-  ReasoningMode
-} from '../src/reasoning-utils';
+import type { ChatCompletionCreateParamsNonStreaming, ChatCompletionMessageParam } from 'openai/resources';
+import { deriveReasoningEffortFromMode, deriveThinkingBudget, deriveThinkingLevelFromMode, ReasoningMode } from '../src/reasoning-utils';
 
 /**
  * Provider smoke test runner.
@@ -51,29 +46,7 @@ const GEMINI_TEMPERATURE = Number(process.env.GEMINI_TEMPERATURE ?? '1');
 const POE_TEMPERATURE = Number(process.env.POE_TEMPERATURE ?? '1');
 
 const REASONING_MODES: ReasoningMode[] = ['auto', 'fast', 'balanced', 'deep'];
-const REASONING_MODEL_PATTERNS = [/^gpt-5(\.|$)/i, /^o[1-4](\.|$)/i];
-type OpenAIReasoningEffort = 'low' | 'medium' | 'high';
 const AVAILABLE_PROVIDERS: ProviderName[] = ['openai', 'gemini', 'poe'];
-
-function isReasoningModel(model?: string) {
-  if (!model) {
-    return false;
-  }
-  const normalized = model.trim();
-  return REASONING_MODEL_PATTERNS.some((pattern) => pattern.test(normalized));
-}
-
-function normalizeOpenAIReasoningEffort(
-  effort?: ReturnType<typeof deriveReasoningEffortFromMode>
-): OpenAIReasoningEffort | undefined {
-  if (!effort) {
-    return undefined;
-  }
-  if (effort === 'low' || effort === 'medium' || effort === 'high') {
-    return effort;
-  }
-  return undefined;
-}
 
 function coerceReasoningMode(value?: string): ReasoningMode {
   if (value && REASONING_MODES.includes(value as ReasoningMode)) {
@@ -187,20 +160,32 @@ async function testOpenAI(reasoningMode: ReasoningMode): Promise<TestResult> {
 
   const model = OPENAI_MODEL;
   const temperature = OPENAI_TEMPERATURE;
-  const derivedEffort = deriveReasoningEffortFromMode(reasoningMode);
-  const reasoningEffort = isReasoningModel(model)
-    ? normalizeOpenAIReasoningEffort(derivedEffort)
-    : undefined;
+  const reasoningEffort = deriveReasoningEffortFromMode(reasoningMode);
+  const isReasoningModel = /^(o1|o3|o4|gpt-5)/i.test(model);
+  const normalizedReasoningEffort =
+    reasoningEffort && reasoningEffort !== 'none' ? (reasoningEffort === 'minimal' ? 'low' : reasoningEffort) : undefined;
 
   try {
     const openai = new OpenAI(config);
     const started = Date.now();
-    const completion = await openai.chat.completions.create({
+    const payload: ChatCompletionCreateParamsNonStreaming = {
       model,
-      messages: DEFAULT_MESSAGES,
-      temperature,
-      ...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {})
-    });
+      messages: DEFAULT_MESSAGES
+    };
+
+    if (isReasoningModel) {
+      if (normalizedReasoningEffort) {
+        payload.reasoning_effort = normalizedReasoningEffort;
+        console.log(`Sending reasoning_effort: ${normalizedReasoningEffort}`);
+      } else {
+        console.log('Reasoning model detected but no reasoning_effort derived; sending none.');
+      }
+    } else {
+      payload.temperature = temperature;
+      console.log(`Sending temperature: ${temperature}`);
+    }
+
+    const completion = await openai.chat.completions.create(payload);
 
     const latencyMs = Date.now() - started;
     return {
