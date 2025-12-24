@@ -129,7 +129,7 @@ export async function ChatGPTAPI(messages: ChatCompletionMessageParam[]) {
     const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
 
     const resolvedModel = model || 'gpt-4o';
-    const isReasoningModel = /^(o1|o3|gpt-5)/i.test(resolvedModel);
+const isReasoningModel = /^(o1|o3|o4|gpt-5)/i.test(resolvedModel);
     const reasoningEffort = deriveReasoningEffortFromMode(reasoningMode);
     const openAIReasoningEffort = toOpenAIReasoningEffort(reasoningEffort);
 

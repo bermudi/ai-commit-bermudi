@@ -20,6 +20,23 @@ interface PoeModelMetadata {
   raw: any;
 }
 
+type PoeParameterDescriptor = {
+  name?: string;
+  enum?: string[];
+  oneOf?: { const?: string; value?: string }[];
+  maximum?: number;
+  max?: number;
+  schema?: {
+    enum?: string[];
+    maximum?: number;
+    max?: number;
+  };
+  options?: string[];
+  values?: string[];
+  allowed_values?: string[];
+  enum_values?: string[];
+};
+
 let cachedPoeModels: PoeModelMetadata[] | null = null;
 
 function getPoeConfig(): PoeConfig {
@@ -80,18 +97,116 @@ async function fetchPoeModels(): Promise<PoeModelMetadata[]> {
   return models;
 }
 
+function normalizeParameterName(paramName?: string) {
+  return paramName?.toLowerCase();
+}
+
+function getParameterDescriptor(modelInfo: PoeModelMetadata | undefined, paramName: string): PoeParameterDescriptor | undefined {
+  if (!modelInfo?.raw) {
+    return undefined;
+  }
+  const raw = modelInfo.raw;
+  const lowerParam = normalizeParameterName(paramName);
+  const parameters = raw?.parameters;
+
+  if (Array.isArray(parameters)) {
+    return parameters.find(
+      (parameter: PoeParameterDescriptor) => normalizeParameterName(parameter?.name) === lowerParam
+    );
+  }
+
+  if (parameters && typeof parameters === 'object') {
+    if (parameters[paramName]) {
+      return parameters[paramName];
+    }
+    const matchEntry = Object.entries(parameters).find(
+      ([key, value]) =>
+        normalizeParameterName(key) === lowerParam ||
+        (value && typeof value === 'object' && normalizeParameterName((value as PoeParameterDescriptor).name) === lowerParam)
+    );
+    if (matchEntry) {
+      return matchEntry[1] as PoeParameterDescriptor;
+    }
+  }
+
+  return undefined;
+}
+
 function extractMaxThinkingBudget(modelInfo?: PoeModelMetadata): number | undefined {
   if (!modelInfo?.raw) {
     return undefined;
   }
   const raw = modelInfo.raw;
+  const descriptor = getParameterDescriptor(modelInfo, 'thinking_budget');
   return (
     raw?.metadata?.max_thinking_budget ??
     raw?.metadata?.thinking_budget?.max ??
     raw?.parameters?.thinking_budget?.max ??
     raw?.limits?.thinking_budget?.max ??
-    raw?.capabilities?.reasoning?.thinking_budget?.max
+    raw?.capabilities?.reasoning?.thinking_budget?.max ??
+    descriptor?.maximum ??
+    descriptor?.max ??
+    descriptor?.schema?.maximum ??
+    descriptor?.schema?.max
   );
+}
+
+function extractParameterEnum(model: PoeModelMetadata | undefined, paramName: string): string[] | undefined {
+  const descriptor = getParameterDescriptor(model, paramName);
+  if (!descriptor) {
+    return undefined;
+  }
+
+  const candidateLists = [
+    descriptor.enum,
+    descriptor.enum_values,
+    descriptor.allowed_values,
+    descriptor.values,
+    descriptor.options,
+    descriptor.schema?.enum,
+    descriptor.oneOf?.map((entry) => entry?.const ?? entry?.value)
+  ].filter(Boolean) as string[][];
+
+  const flattened = candidateLists.flat().filter((value) => typeof value === 'string');
+
+  if (flattened.length === 0) {
+    return undefined;
+  }
+
+  return Array.from(new Set(flattened));
+}
+
+function mapModeToEnum(mode: ReasoningMode, allowedValues: string[]): string {
+  if (!allowedValues.length) {
+    throw new Error('Cannot map reasoning mode without allowed values');
+  }
+
+  const normalized = allowedValues.map((value) => ({
+    original: value,
+    normalized: value.toLowerCase()
+  }));
+
+  const pickPreference = (preferences: string[], fallback: () => string) => {
+    const match = normalized.find((entry) => preferences.includes(entry.normalized));
+    return match ? match.original : fallback();
+  };
+
+  const fallbackMiddle = () => normalized[Math.floor(normalized.length / 2)].original;
+  const fallbackLast = () => normalized[normalized.length - 1].original;
+  const fallbackFirst = () => normalized[0].original;
+
+  switch (mode) {
+    case 'deep':
+      return pickPreference(['high', 'maximum', 'max'], fallbackLast);
+    case 'fast':
+      return pickPreference(['low', 'minimal', 'minimum', 'min'], fallbackFirst);
+    case 'balanced':
+      return pickPreference(['medium', 'standard', 'balanced'], fallbackMiddle);
+    case 'auto':
+      return fallbackMiddle();
+    default:
+      return fallbackMiddle();
+  }
 }
 
 async function getPoeModelMetadata(modelId: string): Promise<PoeModelMetadata | undefined> {
@@ -123,22 +238,43 @@ export async function PoeChatAPI(messages: ChatCompletionMessageParam[]) {
     const temperature = configManager.getConfig<number>(ConfigKeys.POE_TEMPERATURE, 0.7);
     const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
 
-    const reasoningEffort = deriveReasoningEffortFromMode(reasoningMode);
-    const thinkingLevel = deriveThinkingLevelFromMode(reasoningMode);
+    const reasoningEffortHint = deriveReasoningEffortFromMode(reasoningMode);
+    const thinkingLevelHint = deriveThinkingLevelFromMode(reasoningMode);
 
     const modelMetadata = await getPoeModelMetadata(model);
     const maxThinkingBudget = extractMaxThinkingBudget(modelMetadata);
-    const thinkingBudget = deriveThinkingBudget(reasoningMode, maxThinkingBudget);
 
     const extraBody: Record<string, string | number> = {};
-    if (reasoningEffort) {
-      extraBody.reasoning_effort = reasoningEffort;
+    const dynamicParameterLogs: string[] = [];
+
+    const logDynamicParameter = (paramName: string, value: string | number, context: string) => {
+      const message = `Mapping ReasoningMode '${reasoningMode}' to ${paramName} '${value}' ${context}`;
+      dynamicParameterLogs.push(message);
+      console.log(message);
+    };
+
+    const thinkingBudgetDescriptor = getParameterDescriptor(modelMetadata, 'thinking_budget');
+    if (thinkingBudgetDescriptor) {
+      const thinkingBudgetValue = deriveThinkingBudget(reasoningMode, maxThinkingBudget);
+      if (thinkingBudgetValue && thinkingBudgetValue > 0) {
+        extraBody.thinking_budget = thinkingBudgetValue;
+        logDynamicParameter(
+          'thinking_budget',
+          thinkingBudgetValue,
+          `(schema max: ${maxThinkingBudget ?? 'unknown'})`
+        );
+      }
     }
-    if (thinkingLevel) {
-      extraBody.thinking_level = thinkingLevel;
-    }
-    if (thinkingBudget && thinkingBudget > 0) {
-      extraBody.thinking_budget = thinkingBudget;
+
+    const enumParameters = ['thinking_level', 'reasoning_effort', 'output_effort'] as const;
+    for (const paramName of enumParameters) {
+      const allowedValues = extractParameterEnum(modelMetadata, paramName);
+      if (!allowedValues?.length) {
+        continue;
+      }
+      const mappedValue = mapModeToEnum(reasoningMode, allowedValues);
+      extraBody[paramName] = mappedValue;
+      logDynamicParameter(paramName, mappedValue, `(schema options: ${allowedValues.join(', ')})`);
     }
 
     console.log('Poe API Call Parameters:', {
@@ -146,10 +282,11 @@ export async function PoeChatAPI(messages: ChatCompletionMessageParam[]) {
       temperature,
       messageCount: messages.length,
       reasoningMode,
-      reasoningEffort,
-      thinkingLevel,
-      thinkingBudget,
-      maxThinkingBudget
+      reasoningEffortHint,
+      thinkingLevelHint,
+      maxThinkingBudget,
+      extraBody,
+      dynamicParameterLogs
     });
 
     const completion = await poe.chat.completions.create({
