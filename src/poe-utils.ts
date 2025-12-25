@@ -151,7 +151,10 @@ function extractMaxThinkingBudget(modelInfo?: PoeModelMetadata): number | undefi
   );
 }
 
-function extractParameterEnum(model: PoeModelMetadata | undefined, paramName: string): string[] | undefined {
+function extractParameterEnum(model?: PoeModelMetadata, paramName?: string): string[] | undefined {
+  if (!model || !paramName) {
+    return undefined;
+  }
   const descriptor = getParameterDescriptor(model, paramName);
   if (!descriptor) {
     return undefined;
