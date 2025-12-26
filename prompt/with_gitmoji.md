@@ -1,10 +1,10 @@
-# Conventional Commits Specification 2.0.0 (Unofficial)
+# Conventional Commits Specification 2.0.1 (Unofficial)
 
 ## Summary
 
 The Conventional Commits specification is a lightweight convention on top of commit messages. It provides an easy set of rules for creating an explicit commit history, making it easier to write automated tools on top of. This convention dovetails with SemVer by describing the features, fixes, and breaking changes made in commit messages.
 
-Version 2.0.0 introduces optimizations for **AI-Assisted Development**, specifically focusing on the transition from code-first to spec-first workflows. It treats the *decision* and the *requirement* as first-class citizens in the repository history.
+Version 2.0.1 introduces optional enhancements for projects using formal specifications, treating requirements and decisions as optionally trackable elements in repository history.
 
 The commit message structure remains:
 
@@ -23,7 +23,7 @@ The commit contains the following structural elements, to communicate intent to 
 - **spec:** a commit of the type `spec` modifies requirements, architecture, or design documents (this correlates with **MINOR** if adding capabilities, **PATCH** if clarifying).
 - **BREAKING CHANGE:** a commit that appends a `!` after the type/scope introduces a breaking API change (correlating with **MAJOR** in Semantic Versioning). A BREAKING CHANGE can be part of commits of any type.
 - **types other than fix: and feat:** are allowed. This specification recommends `build:`, `chore:`, `ci:`, `docs:`, `style:`, `refactor:`, `perf:`, `test:`, `i18n:`, and `spec:`.
-- **footers other than BREAKING CHANGE:** may be provided and follow a convention similar to [git trailer format](https://git-scm.com/docs/git-interpret-trailers). The `BREAKING CHANGE:` footer is OPTIONAL. The `Spec-Ref:` footer is RECOMMENDED for AI-assisted workflows.
+- **footers other than BREAKING CHANGE:** may be provided and follow a convention similar to [git trailer format](https://git-scm.com/docs/git-interpret-trailers). The `BREAKING CHANGE:` footer is OPTIONAL. The `Spec-Ref:` footer is OPTIONAL but recommended when implementing from formal specifications.
 
 Additional types are not mandated by this specification, and have no implicit effect in Semantic Versioning (unless they include a BREAKING CHANGE). A scope may be provided to a commit's type, to provide additional contextual information and is contained within parenthesis, e.g., `feat(parser): add ability to parse arrays`.
 
@@ -149,7 +149,7 @@ feat(impl): add password reset functionality
 - add email notification service
 - create reset confirmation page
 
-Spec-Ref: openspec/changes/add-password-reset
+Spec-Ref: proposals/password-reset
 Refs: #123
 ```
 
@@ -160,7 +160,7 @@ spec: archive password reset feature
 
 Move completed change proposal to archive and update main spec.
 
-Spec-Ref: openspec/changes/add-password-reset
+Spec-Ref: docs/password-reset.md
 ```
 
 ---
@@ -175,9 +175,9 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 3. The type `fix` MUST be used when a commit represents a bug fix for your application.
 
-4. The type `spec` SHOULD be used when a commit modifies requirements, architecture, or design files (e.g., OpenSpec `spec.md` or `proposal.md` files, ADRs, or similar decision records).
+4. The type `spec` MAY be used when a commit modifies requirements, architecture, or design files (e.g., ADRs, RFCs, or similar decision records).
 
-5. A scope MAY be provided after a type. A scope MUST consist of a noun describing a section of the codebase surrounded by parenthesis, e.g., `fix(parser):`. The scope SHOULD be written in English. For AI-driven workflows, the scope `impl` is RECOMMENDED when the commit strictly implements a previously committed `spec`.
+5. A scope MAY be provided after a type. A scope MUST consist of a noun describing a section of the codebase surrounded by parenthesis, e.g., `fix(parser):`. The scope SHOULD be written in English. For specification-driven workflows, the scope `impl` MAY be used when the commit strictly implements a previously defined specification.
 
 6. A description MUST immediately follow the colon and space after the type/scope prefix. The description is a short summary of the code changes.
    - It MUST be written in the imperative mood, present tense (e.g., "add feature" not "added feature" or "adds feature").
@@ -193,7 +193,6 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
    - Simple changes that would only restate the subject SHOULD omit the body and any footers; a concise header-only commit is RECOMMENDED in these cases.
 
 8. One or more footers MAY be provided one blank line after the body. Each footer MUST consist of a word token, followed by either a `:<space>` or `<space>#` separator, followed by a string value (this is inspired by the [git trailer convention](https://git-scm.com/docs/git-interpret-trailers)). Footers like Refs:, Closes:, or Issue: are RECOMMENDED for linking to external resources (such as issue trackers, Pull Requests, or discussion forums) and SHOULD NOT be used to link to internal files or code changes (which belong in the body).
-
 
 9. A footer's token MUST use `-` in place of whitespace characters, e.g., `Acked-by` (this helps differentiate the footer section from a multi-paragraph body). An exception is made for `BREAKING CHANGE`, which MAY also be used as a token.
 
@@ -211,35 +210,37 @@ The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD", "S
 
 16. `BREAKING-CHANGE` MUST be synonymous with `BREAKING CHANGE`, when used as a token in a footer.
 
-17. The `Spec-Ref:` footer token MAY be used to reference the path to the specification file, directory, or change-id governing the commit (e.g., `Spec-Ref: openspec/changes/feat-x`). This footer is RECOMMENDED for commits that implement a previously defined specification.
+17. The `Spec-Ref:` footer token MAY be used to reference the path to the specification file, directory, or change-id governing the commit (e.g., `Spec-Ref: proposals/feat-x`). This footer is OPTIONAL and most valuable for teams using formal specification systems or AI coding assistants.
 
-18. A single commit MUST represent a single logical change. In spec-driven workflows, the commit defining the specification (`spec:`) and the commit implementing it (`feat:`, `fix:`, etc.) SHALL be treated as separate logical changes and SHOULD be committed separately.
+18. A single commit MUST represent a single logical change. In specification-driven workflows, the commit defining the specification (`spec:`) and the commit implementing it (`feat:`, `fix:`, etc.) MAY be treated as separate logical changes and can be committed separately to maintain clear audit trails.
+
+19. The `Refs:` footer MUST NOT contain empty values, `#n/a` or similar. This placeholder provides no useful information and defeats the purpose of referencing related work. If no references exist, omit the footer entirely.
 
 ---
 
-## AI-Assisted Workflow Guidance (Non-Normative)
+## Specification Workflow Guidance (Non-Normative)
 
-To maximize the efficiency of AI agents (Coding Assistants, Auto-PR generators), the following patterns are suggested.
+For teams using formal specifications (ADRs, RFCs, or similar decision records), the following patterns may provide additional value.
 
-### The Spec-Implementation-Archive Loop
+### The Proposal-Implementation Pattern
 
-When using an AI to build software, the git log should reflect the state machine of the decision:
+When specifications govern development, the git log can reflect the decision lifecycle:
 
-1. **The Proposal:** `spec: propose new search logic`. This commit contains the "Delta" requirements.
-2. **The Implementation:** `feat(impl): implement search filters`. This commit contains the code. The `Spec-Ref` footer links it to the proposal.
-3. **The Archival:** `spec: archive search logic`. This commit moves the change to the archive and updates the "Source of Truth" in the main specs directory.
+1. **The Proposal:** `spec: propose new search logic`. This commit captures requirements or design decisions.
+2. **The Implementation:** `feat(impl): implement search filters`. This commit contains the code. The `Spec-Ref` footer optionally links it to the proposal.
+3. **The Completion:** `spec: archive search logic proposal`. This commit moves the proposal to an archive if your workflow uses one.
 
-### Context Loading
+### Benefits of Separation
 
-AI agents can use the `Spec-Ref` footer to automatically locate and load the relevant documentation into their context window, reducing the need for manual file-tagging by the human user.
+Keeping `spec:` and implementation commits separate allows:
+- Independent rollback of implementation without losing decision records
+- Multiple implementation attempts referencing the same specification
+- Clear audit trail separating decisions from execution
+- AI agents to automatically load relevant specifications when `Spec-Ref` is present
 
-### Why Separate Commits?
+### Usage Notes
 
-Keeping `spec:` and `feat(impl):` commits separate allows:
-- Rollback of implementation without losing the decision record
-- Multiple implementation attempts against the same spec
-- Clear audit trail of what was decided vs. what was built
-- AI agents to distinguish "understand the requirement" from "write the code"
+These patterns are entirely optional. Teams not using formal specifications can continue using conventional commits without the `spec` type or `Spec-Ref` footer. The value increases with the formality of your specification process.
 
 ---
 
@@ -250,7 +251,7 @@ Keeping `spec:` and `feat(impl):` commits separate allows:
 - Communicating the nature of changes to teammates, the public, and other stakeholders.
 - Triggering build and publish processes.
 - Making it easier for people to contribute to your projects, by allowing them to explore a more structured commit history.
-- Enabling AI agents to understand project history and locate relevant specifications.
+- Enabling AI agents to understand project history and locate relevant specifications when present.
 
 ---
 
@@ -318,11 +319,11 @@ The 50-character limit for the subject SHOULD NOT be exceeded, and the 72-charac
 
 ### When should I use `spec:` vs `docs:`?
 
-Use `spec:` for documents that define *requirements* or *decisions* that will govern future code changes (e.g., ADRs, OpenSpec proposals, API contracts). Use `docs:` for documentation that *describes* existing behavior (e.g., README updates, user guides, inline comments).
+Use `spec:` for documents that define *requirements* or *decisions* that will govern future code changes (e.g., ADRs, RFCs, API contracts). Use `docs:` for documentation that *describes* existing behavior (e.g., README updates, user guides, inline comments).
 
 ### Do I need to use `Spec-Ref` for every implementation commit?
 
-No. `Spec-Ref` is RECOMMENDED but not required. It's most valuable in teams using AI coding assistants or formal spec-first workflows. For small changes or solo projects, a simple `feat:` or `fix:` without `Spec-Ref` remains perfectly valid.
+No. `Spec-Ref` is OPTIONAL. It's most valuable in teams using formal specification systems or AI coding assistants that can automatically load referenced documents. For small changes, solo projects, or teams without formal specs, a simple `feat:` or `fix:` without `Spec-Ref` remains perfectly valid.
 
 ---
 
@@ -339,11 +340,12 @@ Before committing, verify:
 - [ ] Bullet points use `-` (if lists present)
 - [ ] Commit represents a single logical change
 - [ ] `spec:` is used for requirement/design changes (if applicable)
-- [ ] `Spec-Ref` footer is included if governed by a specification (recommended)
-- [ ] Spec changes and code changes are in separate commits (if applicable)
+- [ ] `Spec-Ref` footer is included if governed by a specification (optional)
+- [ ] Spec changes and code changes are in separate commits (recommended when using formal specs)
 
 ---
 
-**Version:** 2.0.0 (Unofficial)  
+**Version:** 2.0.1 (Unofficial)  
 **Based on:** Conventional Commits 1.0.0  
 **License:** CC BY 3.0
+
