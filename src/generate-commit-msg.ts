@@ -9,6 +9,7 @@ import { getMainCommitPrompt } from './prompts';
 import { ProgressHandler } from './utils';
 import { GeminiAPI } from './gemini-utils';
 import { PoeChatAPI } from './poe-utils';
+import { checkAndPromptForConfiguration, ProviderName } from './provider-config';
 
 /**
  * Scans the openspec directory to provide context about active specs.
@@ -153,7 +154,11 @@ export async function generateCommitMsg(arg) {
       const configManager = ConfigurationManager.getInstance();
       const repo = await getRepo(arg);
 
-      const aiProvider = configManager.getConfig<string>(ConfigKeys.AI_PROVIDER, 'openai');
+      const resolvedProvider = await checkAndPromptForConfiguration(configManager);
+      if (!resolvedProvider) {
+        return;
+      }
+      const aiProvider: ProviderName = resolvedProvider;
       const includeOpenSpecContext = configManager.getConfig<boolean>(ConfigKeys.ENABLE_OPEN_SPEC_CONTEXT, true);
       const includeRecentCommitsContext = configManager.getConfig<boolean>(ConfigKeys.ENABLE_RECENT_COMMITS_CONTEXT, true);
 
