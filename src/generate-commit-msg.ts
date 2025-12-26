@@ -11,14 +11,37 @@ import { GeminiAPI } from './gemini-utils';
 import { PoeChatAPI } from './poe-utils';
 import { checkAndPromptForConfiguration, ProviderName } from './provider-config';
 
+interface OpenSpecContextInfo {
+  text: string;
+  hasSpecs: boolean;
+}
+
 /**
  * Scans the openspec directory to provide context about active specs.
  */
-async function getOpenSpecContext(repoPath: string): Promise<string> {
+async function getOpenSpecContext(repoPath: string): Promise<OpenSpecContextInfo> {
   try {
-    const changesPath = path.join(repoPath, 'openspec', 'changes');
+    const openSpecDir = path.join(repoPath, 'openspec');
+    const changesPath = path.join(openSpecDir, 'changes');
+    const projectDocPath = path.join(openSpecDir, 'project.md');
+
+    const hasOpenSpecDir = await fs.pathExists(openSpecDir);
+    const hasProjectDoc = await fs.pathExists(projectDocPath);
+
+    if (!hasOpenSpecDir && !hasProjectDoc) {
+      return {
+        text:
+          'OpenSpec context not detected in this repository (no openspec/ directory or openspec/project.md). Spec-Ref footers are optional unless you add OpenSpec proposals.',
+        hasSpecs: false
+      };
+    }
+
     if (!await fs.pathExists(changesPath)) {
-      return '';
+      return {
+        text:
+          'OpenSpec directory detected but openspec/changes/ is missing. Spec-Ref footers are optional until you add proposals under openspec/changes/.',
+        hasSpecs: hasProjectDoc
+      };
     }
 
     const entries = await fs.readdir(changesPath, { withFileTypes: true });
@@ -27,12 +50,24 @@ async function getOpenSpecContext(repoPath: string): Promise<string> {
       .filter(dirent => dirent.isDirectory() && dirent.name !== 'archive')
       .map(dirent => `openspec/changes/${dirent.name}`);
 
-    if (activeSpecs.length === 0) return '';
+    if (activeSpecs.length === 0) {
+      return {
+        text:
+          'OpenSpec directory detected but there are no active proposals under openspec/changes/. Spec-Ref footers are optional until a proposal is active.',
+        hasSpecs: hasProjectDoc
+      };
+    }
 
-    return `\nActive OpenSpec Proposals (Use these paths for Spec-Ref footers if relevant):\n- ${activeSpecs.join('\n- ')}`;
+    return {
+      text: `\nActive OpenSpec Proposals (Use these paths for Spec-Ref footers if relevant):\n- ${activeSpecs.join('\n- ')}`,
+      hasSpecs: true
+    };
   } catch (error) {
     console.warn('Failed to scan openspec context:', error);
-    return '';
+    return {
+      text: '',
+      hasSpecs: false
+    };
   }
 }
 
@@ -175,8 +210,11 @@ export async function generateCommitMsg(arg) {
       const additionalContext = scmInputBox.value.trim();
       const branchName = await getBranchName(repo);
       const repoRoot = repo.rootUri.fsPath;
-      const openSpecContext = includeOpenSpecContext ? await getOpenSpecContext(repoRoot) : '';
-      const hasOpenSpecContext = openSpecContext.length > 0;
+      const openSpecContextInfo = includeOpenSpecContext
+        ? await getOpenSpecContext(repoRoot)
+        : { text: '', hasSpecs: false };
+      const openSpecContext = openSpecContextInfo.text;
+      const hasOpenSpecContext = openSpecContextInfo.hasSpecs;
       const recentCommits = includeRecentCommitsContext ? await getRecentCommits(repo) : '';
 
       progress.report({
