@@ -50,9 +50,10 @@ const generateCommitMessageChatCompletionPrompt = async (
   additionalContext: string | undefined,
   branchName: string | undefined,
   openSpecContext: string,
-  recentCommits: string
+  recentCommits: string,
+  hasOpenSpecContext: boolean
 ) => {
-  const INIT_MESSAGES_PROMPT = await getMainCommitPrompt();
+  const INIT_MESSAGES_PROMPT = await getMainCommitPrompt(hasOpenSpecContext);
   const chatContextAsCompletionRequest = [...INIT_MESSAGES_PROMPT];
 
   let contextMsg = `Input Data:\n`;
@@ -175,6 +176,7 @@ export async function generateCommitMsg(arg) {
       const branchName = await getBranchName(repo);
       const repoRoot = repo.rootUri.fsPath;
       const openSpecContext = includeOpenSpecContext ? await getOpenSpecContext(repoRoot) : '';
+      const hasOpenSpecContext = openSpecContext.length > 0;
       const recentCommits = includeRecentCommitsContext ? await getRecentCommits(repo) : '';
 
       progress.report({
@@ -188,7 +190,8 @@ export async function generateCommitMsg(arg) {
         additionalContext,
         branchName,
         openSpecContext,
-        recentCommits
+        recentCommits,
+        hasOpenSpecContext
       );
 
       progress.report({
