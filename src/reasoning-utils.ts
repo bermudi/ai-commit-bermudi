@@ -24,9 +24,9 @@ const MODE_TO_BUDGET_RATIO: Record<ReasoningMode, number | undefined> = {
 
 const MODE_TO_FALLBACK_BUDGET: Record<ReasoningMode, number | undefined> = {
   auto: undefined,
-  fast: 2000,
-  balanced: 6000,
-  deep: 12000
+  fast: 2048,
+  balanced: 8192,
+  deep: 32768
 };
 
 export function deriveReasoningEffortFromMode(mode: ReasoningMode): ReasoningEffort | undefined {
