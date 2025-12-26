@@ -40,6 +40,17 @@ function getModelCapabilities(model: string) {
   return openAICapabilityCache.get(key)!;
 }
 
+function isReasoningModelName(model?: string) {
+  const normalized = model?.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+  if (normalized.startsWith('gpt-5')) {
+    return true;
+  }
+  return normalized.startsWith('o');
+}
+
 function extractOpenAIErrorMessage(error: any) {
   return error?.response?.data?.error?.message ?? error?.message ?? '';
 }
@@ -129,7 +140,7 @@ export async function ChatGPTAPI(messages: ChatCompletionMessageParam[]) {
     const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
 
     const resolvedModel = model || 'gpt-4o';
-const isReasoningModel = /^(o1|o3|o4|gpt-5)/i.test(resolvedModel);
+const isReasoningModel = isReasoningModelName(resolvedModel);
     const reasoningEffort = deriveReasoningEffortFromMode(reasoningMode);
     const openAIReasoningEffort = toOpenAIReasoningEffort(reasoningEffort);
 
