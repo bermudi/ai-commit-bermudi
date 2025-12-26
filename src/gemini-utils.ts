@@ -1,7 +1,22 @@
-import { GoogleGenAI, Content } from '@google/genai';
+import {
+  GoogleGenAI,
+  type Content,
+  type GenerateContentConfig,
+  type GenerateContentParameters,
+  ThinkingLevel
+} from '@google/genai';
 import { ConfigKeys, ConfigurationManager } from './config';
+import { deriveThinkingBudget, ReasoningMode } from './reasoning-utils';
 
 let cachedClient: GoogleGenAI | null = null;
+type GeminiModelCapability = {
+  supportsThinking: boolean;
+};
+
+type GeminiThinkingConfig = NonNullable<GenerateContentConfig['thinkingConfig']>;
+type GeminiThinkingLevel = Extract<NonNullable<GeminiThinkingConfig['thinkingLevel']>, ThinkingLevel.LOW | ThinkingLevel.HIGH>;
+
+const geminiModelCapabilityCache = new Map<string, GeminiModelCapability>();
 
 /**
  * Creates and returns a Gemini API configuration object.
@@ -45,6 +60,78 @@ export function createGeminiAPIClient() {
   const config = getGeminiConfig();
   cachedClient = new GoogleGenAI({ apiKey: config.apiKey });
   return cachedClient;
+}
+
+function normalizeModelIdentifier(modelName: string) {
+  return String(modelName ?? '').replace(/^models\//i, '').trim();
+}
+
+function getCapabilityCacheKey(modelName: string) {
+  return normalizeModelIdentifier(modelName).toLowerCase();
+}
+
+function cacheModelCapability(modelName: string, supportsThinking: boolean) {
+  const key = getCapabilityCacheKey(modelName);
+  if (!key) {
+    return;
+  }
+  geminiModelCapabilityCache.set(key, { supportsThinking });
+}
+
+async function modelSupportsThinking(modelName: string, client?: GoogleGenAI) {
+  const normalizedName = normalizeModelIdentifier(modelName);
+  if (!normalizedName) {
+    return false;
+  }
+  const cacheKey = getCapabilityCacheKey(normalizedName);
+  const cached = geminiModelCapabilityCache.get(cacheKey);
+  if (cached) {
+    return cached.supportsThinking;
+  }
+
+  const gemini = client ?? createGeminiAPIClient();
+  try {
+    const model = await gemini.models.get({ model: normalizedName });
+    const supportsThinking = Boolean(model?.thinking);
+    cacheModelCapability(normalizedName, supportsThinking);
+    return supportsThinking;
+  } catch (error) {
+    console.warn('Unable to determine Gemini model thinking capability from metadata; assuming unsupported.', {
+      model: normalizedName,
+      message: error?.message
+    });
+    cacheModelCapability(normalizedName, false);
+    return false;
+  }
+}
+
+function mapReasoningModeToThinkingLevel(reasoningMode: ReasoningMode): GeminiThinkingLevel | undefined {
+  if (reasoningMode === 'fast') {
+    return ThinkingLevel.LOW;
+  }
+  if (reasoningMode === 'deep') {
+    return ThinkingLevel.HIGH;
+  }
+  return undefined;
+}
+
+function buildThinkingConfig(reasoningMode: ReasoningMode): GeminiThinkingConfig | undefined {
+  const thinkingBudget = deriveThinkingBudget(reasoningMode);
+  if (!thinkingBudget) {
+    return undefined;
+  }
+
+  const thinkingConfig: GeminiThinkingConfig = {
+    includeThoughts: true,
+    thinkingBudget
+  };
+
+  const thinkingLevel = mapReasoningModeToThinkingLevel(reasoningMode);
+  if (thinkingLevel) {
+    thinkingConfig.thinkingLevel = thinkingLevel;
+  }
+
+  return thinkingConfig;
 }
 
 function normalizeContent(content: any): string {
@@ -104,11 +191,13 @@ export async function GeminiAPI(messages: any[]) {
     const configManager = ConfigurationManager.getInstance();
     const modelName = configManager.getConfig<string>(ConfigKeys.GEMINI_MODEL, 'gemini-2.0-flash-001');
     const temperature = configManager.getConfig<number>(ConfigKeys.GEMINI_TEMPERATURE, 0.7);
+    const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
 
     console.log('Gemini API Call Parameters:', {
       model: modelName,
       temperature,
-      messageCount: messages.length
+      messageCount: messages.length,
+      reasoningMode
     });
 
     const contents = convertMessagesToContents(messages);
@@ -118,13 +207,38 @@ export async function GeminiAPI(messages: any[]) {
 
     console.log('Sending content to Gemini (first 100 chars):', contents.map(c => c.parts?.map(p => p.text).join(' ')).join('\n').substring(0, 100));
 
-    const result = await gemini.models.generateContent({
-      model: modelName,
-      contents,
-      config: {
-        temperature
+    const supportsThinking = await modelSupportsThinking(modelName, gemini);
+    const thinkingConfig = supportsThinking ? buildThinkingConfig(reasoningMode) : undefined;
+    const generationConfig: GenerateContentConfig = {};
+    let hasGenerationConfig = false;
+
+    if (thinkingConfig) {
+      generationConfig.thinkingConfig = thinkingConfig;
+      hasGenerationConfig = true;
+      if (typeof temperature === 'number') {
+        console.log('Skipping Gemini temperature because thinkingConfig is enabled for reasoning mode.');
       }
+    } else if (typeof temperature === 'number') {
+      generationConfig.temperature = temperature;
+      hasGenerationConfig = true;
+    }
+
+    console.log('Gemini dynamic config resolution:', {
+      supportsThinking,
+      appliedThinkingConfig: thinkingConfig ?? null,
+      includeTemperature: typeof generationConfig.temperature === 'number'
     });
+
+    const generationRequest: GenerateContentParameters = {
+      model: modelName,
+      contents
+    };
+
+    if (hasGenerationConfig) {
+      generationRequest.config = generationConfig;
+    }
+
+    const result = await gemini.models.generateContent(generationRequest);
 
     const text =
       result?.text ||
@@ -182,7 +296,11 @@ export async function listAvailableGeminiModels(): Promise<string[]> {
       )
       .map((model: any) => {
         const name = model?.name ?? model?.model ?? model?.id ?? '';
-        return String(name).replace(/^models\//, '');
+        const normalized = normalizeModelIdentifier(name);
+        if (normalized) {
+          cacheModelCapability(normalized, Boolean(model?.thinking));
+        }
+        return normalized;
       })
       .filter(Boolean);
 
