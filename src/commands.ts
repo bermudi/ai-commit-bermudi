@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { inspect } from 'util';
 import { generateCommitMsg } from './generate-commit-msg';
 import { CONFIG_NAMESPACE, ConfigurationManager } from './config';
 
@@ -70,12 +71,13 @@ export class CommandManager {
       try {
         await handler(...args);
       } catch (error) {
+        const formattedArgs = formatArgsForLogging(args);
         // Log detailed error information for debugging
         console.error(`Command ${command} failed:`, {
           error,
           stack: error?.stack,
           message: error?.message,
-          args
+          args: formattedArgs
         });
 
         const result = await vscode.window.showErrorMessage(
@@ -98,7 +100,7 @@ export class CommandManager {
 Command: ${command}
 Error: ${error.message}
 Stack: ${error?.stack || 'No stack trace available'}
-Arguments: ${JSON.stringify(args, null, 2)}
+Arguments: ${formattedArgs}
 Timestamp: ${new Date().toISOString()}
           `.trim();
 
@@ -117,5 +119,18 @@ Timestamp: ${new Date().toISOString()}
 
   dispose() {
     this.disposables.forEach((d) => d.dispose());
+  }
+}
+
+function formatArgsForLogging(args: unknown[]): string {
+  try {
+    return inspect(args, {
+      depth: 2,
+      maxArrayLength: 20,
+      maxStringLength: 200
+    });
+  } catch (error) {
+    console.warn('Failed to format command arguments for logging:', error);
+    return '[Unable to format arguments due to circular references]';
   }
 }
