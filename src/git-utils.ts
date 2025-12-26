@@ -2,6 +2,7 @@ import * as fs from 'fs-extra';
 import * as path from 'path';
 import simpleGit, { SimpleGit } from 'simple-git';
 import * as vscode from 'vscode';
+import { ConfigKeys, ConfigurationManager } from './config';
 
 type DiffSource = 'staged' | 'unstaged';
 
@@ -9,6 +10,16 @@ export interface ChangesResult {
   diff: string;
   source: DiffSource;
 }
+
+const DEFAULT_IGNORED_PATTERNS = [
+  '*-lock.json',
+  '*.lock',
+  '*.min.js',
+  '*.min.css',
+  '*.map',
+  '*.svg',
+  '*.json'
+];
 
 /**
  * Retrieves the current branch name.
@@ -33,18 +44,32 @@ export async function getBranchName(repo: any): Promise<string | undefined> {
 export async function getChanges(repo: any): Promise<ChangesResult> {
   try {
     const { git, rootPath } = await prepareGit(repo);
+    const ignorePatterns = getIgnorePatterns();
+    const stagedDiff = (await git.diff(buildDiffArgs(['--staged'], ignorePatterns)))?.trim() ?? '';
 
-    const stagedDiff = (await git.diff(['--staged']))?.trim();
     if (stagedDiff) {
       return { diff: stagedDiff, source: 'staged' };
     }
 
-    const workingDiff = (await git.diff())?.trim() ?? '';
-    const untrackedDiff = await collectUntrackedDiff(git, rootPath);
+    const workingDiff = (await git.diff(buildDiffArgs([], ignorePatterns)))?.trim() ?? '';
+    const untrackedDiff = await collectUntrackedDiff(git, rootPath, ignorePatterns);
     const combinedDiff = [workingDiff, untrackedDiff].filter(Boolean).join('\n').trim();
 
     if (!combinedDiff) {
-      throw new Error('No changes available to analyze');
+      const rawStagedDiff = (await git.diff(['--staged']))?.trim() ?? '';
+      if (rawStagedDiff) {
+        return { diff: rawStagedDiff, source: 'staged' };
+      }
+
+      const rawWorkingDiff = (await git.diff())?.trim() ?? '';
+      const rawUntrackedDiff = await collectUntrackedDiff(git, rootPath);
+      const rawCombinedDiff = [rawWorkingDiff, rawUntrackedDiff].filter(Boolean).join('\n').trim();
+
+      if (!rawCombinedDiff) {
+        throw new Error('No changes available to analyze');
+      }
+
+      return { diff: rawCombinedDiff, source: 'unstaged' };
     }
 
     return { diff: combinedDiff, source: 'unstaged' };
@@ -107,7 +132,11 @@ async function prepareGit(repo: any): Promise<{ git: SimpleGit; rootPath: string
   return { git, rootPath };
 }
 
-async function collectUntrackedDiff(git: SimpleGit, rootPath: string): Promise<string> {
+async function collectUntrackedDiff(
+  git: SimpleGit,
+  rootPath: string,
+  ignorePatterns: string[] = []
+): Promise<string> {
   try {
     const rawList = await git.raw(['ls-files', '--others', '--exclude-standard']);
     const untrackedFiles = rawList
@@ -115,12 +144,16 @@ async function collectUntrackedDiff(git: SimpleGit, rootPath: string): Promise<s
       .map(file => file.trim())
       .filter(Boolean);
 
-    if (!untrackedFiles.length) {
+    const filteredFiles = ignorePatterns.length
+      ? untrackedFiles.filter(file => !matchesIgnoreList(file, ignorePatterns))
+      : untrackedFiles;
+
+    if (!filteredFiles.length) {
       return '';
     }
 
     const diffs: string[] = [];
-    for (const relativePath of untrackedFiles) {
+    for (const relativePath of filteredFiles) {
       const absolutePath = path.join(rootPath, relativePath);
       let buffer: Buffer;
 
@@ -192,5 +225,49 @@ function mapGitErrorMessage(error: any): string {
   }
 
   return message;
+}
+
+function getIgnorePatterns(): string[] {
+  try {
+    const configManager = ConfigurationManager.getInstance();
+    const configured = configManager.getConfig<string[]>(ConfigKeys.IGNORED_FILES, DEFAULT_IGNORED_PATTERNS);
+
+    if (Array.isArray(configured) && configured.length > 0) {
+      return configured;
+    }
+  } catch (error) {
+    console.warn('Failed to read IGNORED_FILES configuration, using defaults.', error);
+  }
+
+  return DEFAULT_IGNORED_PATTERNS;
+}
+
+function buildDiffArgs(baseArgs: string[], ignorePatterns: string[]): string[] {
+  if (!ignorePatterns.length) {
+    return baseArgs;
+  }
+
+  const exclusionSpecs = ignorePatterns.map(pattern => `:(exclude)${pattern}`);
+  return [...baseArgs, '--', '.', ...exclusionSpecs];
+}
+
+export function matchesIgnoreList(filename: string, patterns: string[]): boolean {
+  if (!patterns?.length) {
+    return false;
+  }
+
+  const normalized = filename.replace(/\\/g, '/');
+  const basename = path.basename(normalized);
+
+  return patterns.some(pattern => {
+    const regex = globToRegex(pattern);
+    return regex.test(normalized) || regex.test(basename);
+  });
+}
+
+function globToRegex(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&');
+  const regexBody = escaped.replace(/\*/g, '.*').replace(/\?/g, '.');
+  return new RegExp(`^${regexBody}$`);
 }
 

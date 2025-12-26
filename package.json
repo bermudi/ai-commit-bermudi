@@ -216,6 +216,21 @@
             "deep"
           ],
           "description": "Single reasoning control for all providers. 'auto' lets providers decide. 'fast' prioritizes speed, 'balanced' mixes cost + quality, 'deep' maximizes reasoning depth."
+        },
+        "ai-commit-bermudi.IGNORED_FILES": {
+          "type": "array",
+          "description": "Glob patterns of files to hide from the generated diff unless they are the only changes.",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "*-lock.json",
+            "*.lock",
+            "*.min.js",
+            "*.min.css",
+            "*.map",
+            "*.svg"
+          ]
         }
       },
       "title": "AI Commit"
