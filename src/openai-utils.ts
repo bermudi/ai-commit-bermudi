@@ -130,7 +130,7 @@ export function createOpenAIApi() {
  * @param {Array<Object>} messages - The messages to send to the API.
  * @returns {Promise<string>} - A promise that resolves to the API response.
  */
-export async function ChatGPTAPI(messages: ChatCompletionMessageParam[]) {
+export async function ChatGPTAPI(messages: ChatCompletionMessageParam[], options?: { signal?: AbortSignal }) {
   try {
     console.log('Making OpenAI API call...');
     const openai = createOpenAIApi();
@@ -178,7 +178,9 @@ const isReasoningModel = isReasoningModelName(resolvedModel);
     };
 
     const createCompletion = (includeTemperature: boolean) =>
-      openai.chat.completions.create(buildCompletionPayload(includeTemperature));
+      openai.chat.completions.create(buildCompletionPayload(includeTemperature), {
+        signal: options?.signal
+      });
 
     const shouldIncludeTemperature =
       !isReasoningModel && !hasCachedTemperatureRestriction && typeof temperature === 'number';

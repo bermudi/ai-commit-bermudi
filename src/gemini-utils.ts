@@ -184,7 +184,35 @@ function convertMessagesToContents(messages: any[]): Content[] {
  * @param {any[]} messages - The messages to send to the API.
  * @returns {Promise<string>} - A promise that resolves to the API response.
  */
-export async function GeminiAPI(messages: any[]) {
+function wrapWithAbort<T>(promise: Promise<T>, signal?: AbortSignal) {
+  if (!signal) {
+    return promise;
+  }
+  if (signal.aborted) {
+    return Promise.reject(new DOMException('Aborted', 'AbortError'));
+  }
+
+  return new Promise<T>((resolve, reject) => {
+    const abortHandler = () => {
+      signal.removeEventListener('abort', abortHandler);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+
+    signal.addEventListener('abort', abortHandler);
+    promise.then(
+      value => {
+        signal.removeEventListener('abort', abortHandler);
+        resolve(value);
+      },
+      error => {
+        signal.removeEventListener('abort', abortHandler);
+        reject(error);
+      }
+    );
+  });
+}
+
+export async function GeminiAPI(messages: any[], options?: { signal?: AbortSignal }) {
   try {
     console.log('Making Gemini API call...');
     const gemini = createGeminiAPIClient();
@@ -238,7 +266,7 @@ export async function GeminiAPI(messages: any[]) {
       generationRequest.config = generationConfig;
     }
 
-    const result = await gemini.models.generateContent(generationRequest);
+    const result = await wrapWithAbort(gemini.models.generateContent(generationRequest), options?.signal);
 
     const text =
       result?.text ||

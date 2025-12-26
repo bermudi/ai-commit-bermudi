@@ -232,7 +232,7 @@ export async function listAvailablePoeModels(): Promise<string[]> {
   return Array.from(new Set(models.map((model) => model.id))).sort();
 }
 
-export async function PoeChatAPI(messages: ChatCompletionMessageParam[]) {
+export async function PoeChatAPI(messages: ChatCompletionMessageParam[], options?: { signal?: AbortSignal }) {
   try {
     console.log('Making Poe API call...');
     const poe = createPoeApi();
