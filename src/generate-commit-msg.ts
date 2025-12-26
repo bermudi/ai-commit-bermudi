@@ -6,7 +6,7 @@ import { ConfigKeys, ConfigurationManager } from './config';
 import { getBranchName, getChanges, getRecentCommits } from './git-utils'; // Added getBranchName
 import { ChatGPTAPI } from './openai-utils';
 import { getMainCommitPrompt } from './prompts';
-import { ProgressHandler } from './utils';
+import { ProgressHandler, createAbortControllerFromToken, throwIfCancelled } from './utils';
 import { GeminiAPI } from './gemini-utils';
 import { PoeChatAPI } from './poe-utils';
 import { checkAndPromptForConfiguration, ProviderName } from './provider-config';
@@ -185,12 +185,15 @@ export async function getRepo(arg) {
  * @returns {Promise<void>} - A promise that resolves when the commit message has been generated and set in the SCM input box.
  */
 export async function generateCommitMsg(arg) {
-  return ProgressHandler.withProgress('', async (progress) => {
+  return ProgressHandler.withProgress('', async (progress, token) => {
     try {
+      throwIfCancelled(token);
       const configManager = ConfigurationManager.getInstance();
       const repo = await getRepo(arg);
+      throwIfCancelled(token);
 
       const resolvedProvider = await checkAndPromptForConfiguration(configManager);
+      throwIfCancelled(token);
       if (!resolvedProvider) {
         return;
       }
@@ -200,6 +203,7 @@ export async function generateCommitMsg(arg) {
 
       progress.report({ message: 'Gathering Git changes...' });
       const { diff, source: diffSource } = await getChanges(repo);
+      throwIfCancelled(token);
 
       const scmInputBox = repo.inputBox;
       if (!scmInputBox) {
@@ -213,9 +217,11 @@ export async function generateCommitMsg(arg) {
       const openSpecContextInfo = includeOpenSpecContext
         ? await getOpenSpecContext(repoRoot)
         : { text: '', hasSpecs: false };
+      throwIfCancelled(token);
       const openSpecContext = openSpecContextInfo.text;
       const hasOpenSpecContext = openSpecContextInfo.hasSpecs;
       const recentCommits = includeRecentCommitsContext ? await getRecentCommits(repo) : '';
+      throwIfCancelled(token);
 
       progress.report({
         message: additionalContext
@@ -231,6 +237,7 @@ export async function generateCommitMsg(arg) {
         recentCommits,
         hasOpenSpecContext
       );
+      throwIfCancelled(token);
 
       progress.report({
         message: additionalContext
@@ -239,25 +246,29 @@ export async function generateCommitMsg(arg) {
       });
       try {
         let commitMessage: string | undefined;
+        const abortController = createAbortControllerFromToken(token);
+        const abortSignal = abortController.signal;
+        const requestOptions = { signal: abortSignal };
+        throwIfCancelled(token);
 
         if (aiProvider === 'gemini') {
           const geminiApiKey = configManager.getConfig<string>(ConfigKeys.GEMINI_API_KEY);
           if (!geminiApiKey) {
             throw new Error('Gemini API Key not configured');
           }
-          commitMessage = await GeminiAPI(messages);
+          commitMessage = await GeminiAPI(messages, requestOptions);
         } else if (aiProvider === 'poe') {
           const poeApiKey = configManager.getConfig<string>(ConfigKeys.POE_API_KEY);
           if (!poeApiKey) {
             throw new Error('Poe API Key not configured');
           }
-          commitMessage = await PoeChatAPI(messages as ChatCompletionMessageParam[]);
+          commitMessage = await PoeChatAPI(messages as ChatCompletionMessageParam[], requestOptions);
         } else {
           const openaiApiKey = configManager.getConfig<string>(ConfigKeys.OPENAI_API_KEY);
           if (!openaiApiKey) {
             throw new Error('OpenAI API Key not configured');
           }
-          commitMessage = await ChatGPTAPI(messages as ChatCompletionMessageParam[]);
+          commitMessage = await ChatGPTAPI(messages as ChatCompletionMessageParam[], requestOptions);
         }
 
 
@@ -267,6 +278,12 @@ export async function generateCommitMsg(arg) {
           throw new Error('Failed to generate commit message');
         }
       } catch (err) {
+        if (err instanceof vscode.CancellationError || token.isCancellationRequested) {
+          throw new vscode.CancellationError();
+        }
+        if (err?.name === 'AbortError' || err?.code === 'ABORT_ERR') {
+          throw new vscode.CancellationError();
+        }
         // Log the full error for debugging
         console.error('AI Commit Error Details:', {
           error: err,

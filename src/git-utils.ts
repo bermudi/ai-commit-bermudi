@@ -17,8 +17,7 @@ const DEFAULT_IGNORED_PATTERNS = [
   '*.min.js',
   '*.min.css',
   '*.map',
-  '*.svg',
-  '*.json'
+  '*.svg'
 ];
 
 /**
