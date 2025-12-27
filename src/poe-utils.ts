@@ -39,6 +39,41 @@ type PoeParameterDescriptor = {
 
 let cachedPoeModels: PoeModelMetadata[] | null = null;
 
+/**
+ * Strip Poe reasoning artifacts (e.g., Thinking headers and blockquotes) that sometimes
+ * precede the actual commit message. Only leading artifacts are removed so the returned
+ * content remains faithful to the assistant's final answer.
+ */
+function cleanPoeReasoningOutput(content: string): string {
+  if (!content) {
+    return content;
+  }
+
+  const lines = content.split(/\r?\n/);
+  const cleaned: string[] = [];
+  let skipping = true;
+  const thinkingPattern = /^(\*{1,2}|_{1,2})?\s*thinking.*(\*{1,2}|_{1,2})?$/i;
+
+  for (const line of lines) {
+    if (skipping) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        continue;
+      }
+      if (trimmed.startsWith('>')) {
+        continue;
+      }
+      if (thinkingPattern.test(trimmed)) {
+        continue;
+      }
+      skipping = false;
+    }
+    cleaned.push(line);
+  }
+
+  return cleaned.join('\n').trimStart();
+}
+
 function getPoeConfig(): PoeConfig {
   const configManager = ConfigurationManager.getInstance();
   const apiKey = configManager.getConfig<string>(ConfigKeys.POE_API_KEY);
@@ -305,7 +340,12 @@ export async function PoeChatAPI(messages: ChatCompletionMessageParam[], options
     }
 
     console.log('Poe API call successful');
-    return content;
+    const cleanedContent = cleanPoeReasoningOutput(content);
+    console.log('Poe response reasoning cleanup', {
+      originalLength: content.length,
+      cleanedLength: cleanedContent.length
+    });
+    return cleanedContent;
   } catch (error) {
     console.error('Poe API call failed:', {
       error,
