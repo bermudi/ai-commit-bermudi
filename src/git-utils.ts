@@ -1,4 +1,5 @@
 import * as fs from 'fs-extra';
+import { FileHandle, open as openFile } from 'node:fs/promises';
 import * as path from 'path';
 import simpleGit, { SimpleGit } from 'simple-git';
 import * as vscode from 'vscode';
@@ -154,28 +155,21 @@ async function collectUntrackedDiff(
     const diffs: string[] = [];
     for (const relativePath of filteredFiles) {
       const absolutePath = path.join(rootPath, relativePath);
-      let buffer: Buffer;
+      let body: string;
 
       try {
-        buffer = await fs.readFile(absolutePath);
+        const binary = await isBinaryFile(absolutePath);
+
+        if (binary) {
+          body = '+ [binary file content not shown]';
+        } else {
+          const contents = await fs.readFile(absolutePath, 'utf8');
+          body = formatFileBody(contents);
+        }
       } catch (error) {
         console.warn(`Failed to read untracked file ${relativePath}:`, error);
-        diffs.push(
-          [
-            `diff --git a/${relativePath} b/${relativePath}`,
-            '--- /dev/null',
-            `+++ b/${relativePath}`,
-            '@@',
-            '+ [Unable to read file contents]'
-          ].join('\n')
-        );
-        continue;
+        body = '+ [Unable to read file contents]';
       }
-
-      const isBinary = buffer.includes(0);
-      const body = isBinary
-        ? '+ [binary file content not shown]'
-        : formatFileBody(buffer.toString('utf8'));
 
       diffs.push(
         [
@@ -194,6 +188,32 @@ async function collectUntrackedDiff(
   } catch (error) {
     console.warn('Failed to list untracked files:', error);
     return '';
+  }
+}
+
+async function isBinaryFile(filePath: string): Promise<boolean> {
+  const sniffLength = 4096;
+  let handle: FileHandle | undefined;
+
+  try {
+    handle = await openFile(filePath, 'r');
+    const buffer = Buffer.alloc(sniffLength);
+    const { bytesRead } = await handle.read(buffer, 0, sniffLength, 0);
+
+    if (bytesRead === 0) {
+      return false;
+    }
+
+    return buffer.subarray(0, bytesRead).includes(0);
+  } catch (error) {
+    console.warn(`Failed to inspect file for binary content: ${filePath}`, error);
+    return false;
+  } finally {
+    if (handle) {
+      await handle.close().catch(closeError => {
+        console.warn(`Failed to close file handle for ${filePath}:`, closeError);
+      });
+    }
   }
 }
 
