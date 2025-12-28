@@ -8,6 +8,8 @@ export const CONFIG_NAMESPACE = 'ai-commit-bermudi';
 const GLOBAL_STATE_OPENAI_MODELS_KEY = `${CONFIG_NAMESPACE}.availableOpenAIModels`;
 const GLOBAL_STATE_GEMINI_MODELS_KEY = `${CONFIG_NAMESPACE}.availableGeminiModels`;
 const GLOBAL_STATE_POE_MODELS_KEY = `${CONFIG_NAMESPACE}.availablePoeModels`;
+const GLOBAL_STATE_ANTHROPIC_MODELS_KEY = `${CONFIG_NAMESPACE}.availableAnthropicModels`;
+const DEFAULT_ANTHROPIC_MODEL = 'claude-3-5-sonnet-20241022';
 
 /**
  * Configuration keys used in the AI commit extension.
@@ -229,6 +231,22 @@ export class ConfigurationManager {
     return this.context.globalState.get<string[]>(GLOBAL_STATE_POE_MODELS_KEY, []);
   }
 
+  /**
+   * Retrieves the list of available Anthropic models from the registry and caches them.
+   */
+  public async getAvailableAnthropicModels(): Promise<string[]> {
+    const registryModels = await this.fetchRegistryModels('anthropic');
+    if (registryModels.length) {
+      await this.cacheAnthropicModels(registryModels);
+      return registryModels;
+    }
+
+    return this.context.globalState.get<string[]>(
+      GLOBAL_STATE_ANTHROPIC_MODELS_KEY,
+      []
+    );
+  }
+
   private async fetchRegistryModels(providerId: string): Promise<string[]> {
     const registry = ModelRegistry.getInstance();
     let models = registry.getModels(providerId);
@@ -254,6 +272,20 @@ export class ConfigurationManager {
 
     if (!currentModel || !models.includes(currentModel)) {
       await config.update('OPENAI_MODEL', fallbackModel, vscode.ConfigurationTarget.Global);
+    }
+  }
+
+  private async cacheAnthropicModels(models: string[]) {
+    await this.context.globalState.update(GLOBAL_STATE_ANTHROPIC_MODELS_KEY, models);
+    const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
+    const currentModel = config.get<string>(ConfigKeys.ANTHROPIC_MODEL);
+
+    if (!currentModel || !models.includes(currentModel)) {
+      await config.update(
+        ConfigKeys.ANTHROPIC_MODEL,
+        DEFAULT_ANTHROPIC_MODEL,
+        vscode.ConfigurationTarget.Global
+      );
     }
   }
 }

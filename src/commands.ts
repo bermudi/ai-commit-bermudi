@@ -79,7 +79,7 @@ export class CommandManager {
         return;
       }
 
-      const providerItems = Array.from(providerSet)
+      const providerItems: vscode.QuickPickItem[] = Array.from(providerSet)
         .sort()
         .map((provider) => ({
           label: provider,
@@ -90,14 +90,36 @@ export class CommandManager {
 
       const currentProvider = configManager.getConfig<string>(ConfigKeys.AI_PROVIDER, 'openai');
       const selection = await vscode.window.showQuickPick(providerItems, {
-        placeHolder: 'Select the AI provider to use',
-        activeItem: providerItems.find(item => item.label === currentProvider)
+        placeHolder: 'Select the AI provider to use'
       });
 
       if (selection?.label) {
         const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
         await config.update(ConfigKeys.AI_PROVIDER, selection.label, vscode.ConfigurationTarget.Global);
         vscode.window.showInformationMessage(`AI Commit provider set to '${selection.label}'.`);
+      }
+    });
+
+    // Show available Anthropic models
+    this.registerCommand('ai-commit-bermudi.showAvailableAnthropicModels', async () => {
+      const configManager = ConfigurationManager.getInstance();
+      const models = await configManager.getAvailableAnthropicModels();
+
+      if (!models.length) {
+        vscode.window.showInformationMessage(
+          'No Anthropic models available. Try running "AI Commit: Refresh Model Registry" first.'
+        );
+        return;
+      }
+
+      const selected = await vscode.window.showQuickPick(models, {
+        placeHolder: 'Please select an Anthropic model'
+      });
+
+      if (selected) {
+        const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
+        await config.update(ConfigKeys.ANTHROPIC_MODEL, selected, vscode.ConfigurationTarget.Global);
+        vscode.window.showInformationMessage(`Anthropic model set to '${selected}'.`);
       }
     });
   }
