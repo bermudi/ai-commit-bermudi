@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam, ChatCompletionCreateParamsNonStreaming } from 'openai/resources';
 import { ConfigKeys, ConfigurationManager } from './config';
+import { ModelRegistry } from './model-registry';
 import { deriveReasoningEffortFromMode, ReasoningEffort, ReasoningMode } from './reasoning-utils';
 
 type OpenAIModelCapabilities = {
@@ -41,14 +42,19 @@ function getModelCapabilities(model: string) {
 }
 
 function isReasoningModelName(model?: string) {
-  const normalized = model?.trim().toLowerCase();
-  if (!normalized) {
+  const trimmed = model?.trim();
+  if (!trimmed) {
     return false;
   }
-  if (normalized.startsWith('gpt-5')) {
+
+  const registry = ModelRegistry.getInstance();
+  const capabilities = registry.getCapabilities(trimmed);
+  if (capabilities?.reasoning === true) {
     return true;
   }
-  return normalized.startsWith('o');
+
+  const normalized = trimmed.toLowerCase();
+  return /^(?:o1|o3|gpt-5)/.test(normalized);
 }
 
 function extractOpenAIErrorMessage(error: any) {

@@ -6,6 +6,7 @@ import {
   ThinkingLevel
 } from '@google/genai';
 import { ConfigKeys, ConfigurationManager } from './config';
+import { ModelRegistry } from './model-registry';
 import { deriveThinkingBudget, ReasoningMode } from './reasoning-utils';
 
 let cachedClient: GoogleGenAI | null = null;
@@ -87,6 +88,19 @@ async function modelSupportsThinking(modelName: string, client?: GoogleGenAI) {
   const cached = geminiModelCapabilityCache.get(cacheKey);
   if (cached) {
     return cached.supportsThinking;
+  }
+
+  const registry = ModelRegistry.getInstance();
+  const registryCapabilities =
+    registry.getCapabilities(normalizedName) ?? registry.getCapabilities(modelName);
+
+  if (registryCapabilities?.reasoning === true) {
+    cacheModelCapability(normalizedName, true);
+    return true;
+  }
+  if (registryCapabilities?.reasoning === false) {
+    cacheModelCapability(normalizedName, false);
+    return false;
   }
 
   const gemini = client ?? createGeminiAPIClient();
@@ -310,33 +324,53 @@ export async function GeminiAPI(messages: any[], options?: { signal?: AbortSigna
  * @throws {Error} When API key is missing or API call fails
  */
 export async function listAvailableGeminiModels(): Promise<string[]> {
-  try {
-    const gemini = createGeminiAPIClient();
+  const configManager = ConfigurationManager.getInstance();
+  const geminiApiKey = configManager.getConfig<string>(ConfigKeys.GEMINI_API_KEY);
+  const combinedModels = new Set<string>();
 
-    console.log('Fetching available Gemini models via SDK...');
+  const registryModels = await loadRegistryModelList();
+  registryModels.forEach((model) => combinedModels.add(model));
 
-    const response: any = await gemini.models.list();
-    const models = response?.models ?? response ?? [];
+  if (geminiApiKey) {
+    try {
+      const gemini = createGeminiAPIClient();
+      console.log('Fetching available Gemini models via SDK...');
 
-    const modelNames: string[] = models
-      .filter((model: any) =>
-        (model?.supportedGenerationMethods || []).includes('generateContent')
-      )
-      .map((model: any) => {
-        const name = model?.name ?? model?.model ?? model?.id ?? '';
-        const normalized = normalizeModelIdentifier(name);
-        if (normalized) {
-          cacheModelCapability(normalized, Boolean(model?.thinking));
-        }
-        return normalized;
-      })
-      .filter(Boolean);
+      const response: any = await gemini.models.list();
+      const models = response?.models ?? response ?? [];
 
-    console.log(`Found ${modelNames.length} available Gemini models`);
-    return Array.from(new Set(modelNames)).sort();
-
-  } catch (error) {
-    console.error('Failed to fetch Gemini models:', error);
-    throw error;
+      models
+        .filter((model: any) => (model?.supportedGenerationMethods || []).includes('generateContent'))
+        .forEach((model: any) => {
+          const name = model?.name ?? model?.model ?? model?.id ?? '';
+          const normalized = normalizeModelIdentifier(name);
+          if (normalized) {
+            combinedModels.add(normalized);
+            cacheModelCapability(normalized, Boolean(model?.thinking));
+          }
+        });
+    } catch (error) {
+      console.error('Failed to fetch Gemini models via SDK:', error);
+    }
+  } else if (!registryModels.length) {
+    console.warn('Gemini API key not configured and registry data unavailable; no models to display.');
   }
+
+  const result = Array.from(combinedModels).filter(Boolean).sort();
+  console.log(`Resolved ${result.length} available Gemini models (registry + SDK).`);
+  return result;
+}
+
+async function loadRegistryModelList(): Promise<string[]> {
+  const registry = ModelRegistry.getInstance();
+  let models = registry.getModels('gemini');
+  if (!models.length) {
+    try {
+      await registry.refresh();
+      models = registry.getModels('gemini');
+    } catch (error) {
+      console.warn('Failed to refresh models.dev registry for Gemini models:', error);
+    }
+  }
+  return models.map(normalizeModelIdentifier).filter(Boolean);
 }

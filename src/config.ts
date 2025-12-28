@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { createOpenAIApi } from './openai-utils';
 import { listAvailableGeminiModels } from './gemini-utils';
 import { listAvailablePoeModels } from './poe-utils';
+import { ModelRegistry } from './model-registry';
 
 export const CONFIG_NAMESPACE = 'ai-commit-bermudi';
 const GLOBAL_STATE_OPENAI_MODELS_KEY = `${CONFIG_NAMESPACE}.availableOpenAIModels`;
@@ -108,26 +109,24 @@ export class ConfigurationManager {
    */
   private async updateOpenAIModelList() {
     try {
+      const registryModels = await this.fetchRegistryModels('openai');
+      if (registryModels.length) {
+        await this.cacheOpenAIModels(registryModels);
+        return;
+      }
+
       const apiKey = this.getConfig<string>(ConfigKeys.OPENAI_API_KEY);
       if (!apiKey) {
-        console.warn('OpenAI API key not configured, skipping model list update');
+        console.warn('OpenAI API key not configured and models.dev data unavailable; skipping model list update');
         return;
       }
 
       const openai = createOpenAIApi();
       const models = await openai.models.list();
-
-      // Save available models to extension state
-      await this.context.globalState.update(GLOBAL_STATE_OPENAI_MODELS_KEY, models.data.map(model => model.id));
-
-      // Get the current selected model
-      const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
-      const currentModel = config.get<string>('OPENAI_MODEL');
-
-      // If the current selected model is not in the available list, set it to the default value
       const availableModels = models.data.map(model => model.id);
-      if (!availableModels.includes(currentModel)) {
-        await config.update('OPENAI_MODEL', 'gpt-4', vscode.ConfigurationTarget.Global);
+
+      if (availableModels.length) {
+        await this.cacheOpenAIModels(availableModels);
       }
     } catch (error) {
       console.error('Failed to fetch OpenAI models:', error);
@@ -165,13 +164,12 @@ export class ConfigurationManager {
    */
   private async updateGeminiModelList() {
     try {
-      const apiKey = this.getConfig<string>(ConfigKeys.GEMINI_API_KEY);
-      if (!apiKey) {
-        console.warn('Gemini API key not configured, skipping model list update');
+      const models = await listAvailableGeminiModels();
+
+      if (!models.length) {
+        console.warn('No Gemini models available from SDK or registry.');
         return;
       }
-
-      const models = await listAvailableGeminiModels();
 
       // Save available models to extension state
       await this.context.globalState.update(GLOBAL_STATE_GEMINI_MODELS_KEY, models);
@@ -195,6 +193,12 @@ export class ConfigurationManager {
    * @returns {Promise<string[]>} The list of available OpenAI models.
    */
   public async getAvailableOpenAIModels(): Promise<string[]> {
+    const registryModels = await this.fetchRegistryModels('openai');
+    if (registryModels.length) {
+      await this.context.globalState.update(GLOBAL_STATE_OPENAI_MODELS_KEY, registryModels);
+      return registryModels;
+    }
+
     if (!this.context.globalState.get<string[]>(GLOBAL_STATE_OPENAI_MODELS_KEY)) {
       await this.updateOpenAIModelList();
     }
@@ -221,5 +225,33 @@ export class ConfigurationManager {
       await this.updatePoeModelList();
     }
     return this.context.globalState.get<string[]>(GLOBAL_STATE_POE_MODELS_KEY, []);
+  }
+
+  private async fetchRegistryModels(providerId: string): Promise<string[]> {
+    const registry = ModelRegistry.getInstance();
+    let models = registry.getModels(providerId);
+    if (models.length) {
+      return models;
+    }
+
+    try {
+      await registry.refresh();
+      models = registry.getModels(providerId);
+    } catch (error) {
+      console.warn(`Failed to refresh models.dev registry for provider ${providerId}:`, error);
+    }
+    return models;
+  }
+
+  private async cacheOpenAIModels(models: string[]) {
+    await this.context.globalState.update(GLOBAL_STATE_OPENAI_MODELS_KEY, models);
+
+    const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
+    const currentModel = config.get<string>('OPENAI_MODEL');
+    const fallbackModel = 'gpt-4o';
+
+    if (!currentModel || !models.includes(currentModel)) {
+      await config.update('OPENAI_MODEL', fallbackModel, vscode.ConfigurationTarget.Global);
+    }
   }
 }
