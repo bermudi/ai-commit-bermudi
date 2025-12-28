@@ -71,21 +71,28 @@ function isUnsupportedTemperatureError(error: any) {
   );
 }
 
+type OpenAIClientOverrides = {
+  apiKey?: string;
+  baseURL?: string;
+  defaultQuery?: Record<string, string>;
+  defaultHeaders?: Record<string, string>;
+};
+
 /**
  * Creates and returns an OpenAI configuration object.
  * @returns {Object} - The OpenAI configuration object.
  * @throws {Error} - Throws an error if the API key is missing or empty.
  */
-function getOpenAIConfig() {
+function getOpenAIConfig(overrides?: OpenAIClientOverrides) {
   const configManager = ConfigurationManager.getInstance();
-  const apiKey = configManager.getConfig<string>(ConfigKeys.OPENAI_API_KEY);
-  const baseURL = configManager.getConfig<string>(ConfigKeys.OPENAI_BASE_URL);
+  const apiKey = overrides?.apiKey ?? configManager.getConfig<string>(ConfigKeys.OPENAI_API_KEY);
+  const baseURL = overrides?.baseURL ?? configManager.getConfig<string>(ConfigKeys.OPENAI_BASE_URL);
   const apiVersion = configManager.getConfig<string>(ConfigKeys.AZURE_API_VERSION);
 
   console.log('OpenAI Config Check:', {
     hasApiKey: !!apiKey,
     apiKeyLength: apiKey?.length,
-    baseURL: baseURL || 'default',
+    baseURL: baseURL || overrides?.baseURL || 'default',
     apiVersion: apiVersion || 'not set'
   });
 
@@ -105,18 +112,27 @@ function getOpenAIConfig() {
   const config: {
     apiKey: string;
     baseURL?: string;
-    defaultQuery?: { 'api-version': string };
-    defaultHeaders?: { 'api-key': string };
+    defaultQuery?: Record<string, string>;
+    defaultHeaders?: Record<string, string>;
   } = {
     apiKey
   };
 
-  if (baseURL) {
-    config.baseURL = baseURL;
-    if (apiVersion) {
-      config.defaultQuery = { 'api-version': apiVersion };
-      config.defaultHeaders = { 'api-key': apiKey };
-    }
+  const resolvedBaseURL = baseURL ?? overrides?.baseURL;
+  if (resolvedBaseURL) {
+    config.baseURL = resolvedBaseURL;
+  }
+
+  if (overrides?.defaultQuery) {
+    config.defaultQuery = overrides.defaultQuery;
+  } else if (!overrides?.baseURL && baseURL && apiVersion) {
+    config.defaultQuery = { 'api-version': apiVersion };
+  }
+
+  if (overrides?.defaultHeaders) {
+    config.defaultHeaders = overrides.defaultHeaders;
+  } else if (!overrides?.baseURL && baseURL && apiVersion) {
+    config.defaultHeaders = { 'api-key': apiKey };
   }
 
   return config;
@@ -126,31 +142,58 @@ function getOpenAIConfig() {
  * Creates and returns an OpenAI API instance.
  * @returns {OpenAI} - The OpenAI API instance.
  */
-export function createOpenAIApi() {
-  const config = getOpenAIConfig();
+export function createOpenAIApi(overrides?: OpenAIClientOverrides) {
+  const config = getOpenAIConfig(overrides);
   return new OpenAI(config);
 }
 
+type OpenAICompatibleOptions = {
+  signal?: AbortSignal;
+  apiKey?: string;
+  baseURL?: string;
+  model?: string;
+  temperature?: number;
+  reasoningMode?: ReasoningMode;
+  defaultHeaders?: Record<string, string>;
+  defaultQuery?: Record<string, string>;
+};
+
 /**
- * Sends a chat completion request to the OpenAI API.
+ * Sends a chat completion request to any OpenAI-compatible API.
  * @param {Array<Object>} messages - The messages to send to the API.
  * @returns {Promise<string>} - A promise that resolves to the API response.
  */
-export async function ChatGPTAPI(messages: ChatCompletionMessageParam[], options?: { signal?: AbortSignal }) {
+export async function OpenAICompatibleAPI(
+  messages: ChatCompletionMessageParam[],
+  options?: OpenAICompatibleOptions
+) {
   try {
-    console.log('Making OpenAI API call...');
-    const openai = createOpenAIApi();
     const configManager = ConfigurationManager.getInstance();
-    const model = configManager.getConfig<string>(ConfigKeys.OPENAI_MODEL, 'gpt-4o');
-    const temperature = configManager.getConfig<number>(ConfigKeys.OPENAI_TEMPERATURE, 0.7);
-    const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
+    const model = options?.model ?? configManager.getConfig<string>(ConfigKeys.OPENAI_MODEL, 'gpt-4o');
+    const temperature =
+      options?.temperature ?? configManager.getConfig<number>(ConfigKeys.OPENAI_TEMPERATURE, 0.7);
+    const reasoningMode =
+      options?.reasoningMode ?? configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
+
+    console.log('Making OpenAI-compatible API call...', {
+      model,
+      baseURL: options?.baseURL,
+      usingOverrideKey: Boolean(options?.apiKey)
+    });
+
+    const openai = createOpenAIApi({
+      apiKey: options?.apiKey,
+      baseURL: options?.baseURL,
+      defaultHeaders: options?.defaultHeaders,
+      defaultQuery: options?.defaultQuery
+    });
 
     const resolvedModel = model || 'gpt-4o';
 const isReasoningModel = isReasoningModelName(resolvedModel);
     const reasoningEffort = deriveReasoningEffortFromMode(reasoningMode);
     const openAIReasoningEffort = toOpenAIReasoningEffort(reasoningEffort);
 
-    console.log('OpenAI API Call Parameters:', {
+    console.log('OpenAI-compatible API Call Parameters:', {
       model: resolvedModel,
       temperature,
       messageCount: messages.length,
@@ -213,10 +256,10 @@ const isReasoningModel = isReasoningModelName(resolvedModel);
       throw new Error('OpenAI returned empty content');
     }
 
-    console.log('OpenAI API call successful');
+    console.log('OpenAI-compatible API call successful');
     return content;
   } catch (error) {
-    console.error('OpenAI API call failed:', {
+    console.error('OpenAI-compatible API call failed:', {
       error,
       message: error.message,
       status: error.response?.status,

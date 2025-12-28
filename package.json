@@ -31,6 +31,7 @@
     "onCommand:ai-commit-bermudi.showAvailableOpenAIModels",
     "onCommand:ai-commit-bermudi.showAvailableGeminiModels",
     "onCommand:ai-commit-bermudi.showAvailablePoeModels",
+    "onCommand:ai-commit-bermudi.selectProvider",
     "onCommand:ai-commit-bermudi.refreshModels",
     "onCommand:extension.configure-ai-commit-bermudi"
   ],
@@ -56,6 +57,10 @@
       {
         "command": "ai-commit-bermudi.showAvailablePoeModels",
         "title": "AI Commit: Show Available Poe Models"
+      },
+      {
+        "command": "ai-commit-bermudi.selectProvider",
+        "title": "AI Commit: Select AI Provider"
       },
       {
         "command": "ai-commit-bermudi.refreshModels",
@@ -170,12 +175,7 @@
         "ai-commit-bermudi.AI_PROVIDER": {
           "type": "string",
           "default": "openai",
-          "description": "AI Provider to use (OpenAI, Gemini, or Poe)",
-          "enum": [
-            "openai",
-            "gemini",
-            "poe"
-          ]
+          "description": "AI Provider ID (e.g. 'openai', 'anthropic', 'gemini', 'poe', 'groq')."
         },
         "ai-commit-bermudi.POE_API_KEY": {
           "type": "string",
@@ -210,6 +210,18 @@
           "minimum": 0,
           "maximum": 2,
           "description": "Gemini temperature setting (0-2). Controls randomness."
+        },
+        "ai-commit-bermudi.ANTHROPIC_MODEL": {
+          "type": "string",
+          "default": "claude-3-5-sonnet-20241022",
+          "description": "Anthropic Claude model to use when the AI Provider is set to 'anthropic'."
+        },
+        "ai-commit-bermudi.ANTHROPIC_TEMPERATURE": {
+          "type": "number",
+          "default": 0.7,
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Anthropic temperature setting (0-2). Controls randomness for Claude responses."
         },
         "ai-commit-bermudi.REASONING_MODE": {
           "type": "string",
@@ -282,6 +294,7 @@
     "vsce": "^2.15.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.26.1",
     "@google/genai": "^1.34.0",
     "fs-extra": "^11.0.4",
     "openai": "^4.14.2",

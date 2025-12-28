@@ -7,7 +7,9 @@ const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 type ModelsDevProvider = {
   id: string;
+  api?: string;
   models?: Record<string, ModelsDevModel>;
+  [key: string]: unknown;
 };
 
 export type ModelsDevModel = {
@@ -17,6 +19,12 @@ export type ModelsDevModel = {
 };
 
 type ModelsDevResponse = Record<string, ModelsDevProvider>;
+
+export type ProviderMetadata = {
+  id: string;
+  apiBaseUrl?: string;
+  raw?: ModelsDevProvider;
+};
 
 type ModelRegistryState = {
   data: ModelsDevResponse;
@@ -105,6 +113,15 @@ export class ModelRegistry {
     }
   }
 
+  getProviders() {
+    this.ensureCache();
+    const cacheKeys = Object.keys(this.cache ?? {});
+    const aliasKeys = Object.entries(PROVIDER_NAME_MAP)
+      .filter(([, target]) => cacheKeys.includes(target))
+      .map(([alias]) => alias);
+    return Array.from(new Set([...cacheKeys, ...aliasKeys])).sort();
+  }
+
   getModels(providerId: string) {
     this.ensureCache();
     const mappedProvider = PROVIDER_NAME_MAP[providerId] ?? providerId;
@@ -121,6 +138,20 @@ export class ModelRegistry {
     }
     this.ensureCache();
     return this.modelIndex.get(normalizeModelKey(modelId));
+  }
+
+  getProviderMetadata(providerId: string): ProviderMetadata | undefined {
+    this.ensureCache();
+    const mappedProvider = PROVIDER_NAME_MAP[providerId] ?? providerId;
+    const provider = this.cache?.[mappedProvider];
+    if (!provider) {
+      return undefined;
+    }
+    return {
+      id: provider.id ?? mappedProvider,
+      apiBaseUrl: typeof provider.api === 'string' ? provider.api : undefined,
+      raw: provider
+    };
   }
 
   private async performRefresh() {

@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import { inspect } from 'util';
 import { generateCommitMsg } from './generate-commit-msg';
-import { CONFIG_NAMESPACE, ConfigurationManager } from './config';
+import { CONFIG_NAMESPACE, ConfigKeys, ConfigurationManager } from './config';
+import { ModelRegistry } from './model-registry';
+import { BUILTIN_PROVIDER_IDS } from './provider-config';
 
 /**
  * Manages the registration and disposal of commands.
@@ -62,6 +64,40 @@ export class CommandManager {
       if (selected) {
         const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
         await config.update('POE_MODEL', selected, vscode.ConfigurationTarget.Global);
+      }
+    });
+
+    // Select AI Provider
+    this.registerCommand('ai-commit-bermudi.selectProvider', async () => {
+      const configManager = ConfigurationManager.getInstance();
+      const modelRegistry = ModelRegistry.getInstance();
+      const registryProviders = modelRegistry.getProviders();
+      const providerSet = new Set<string>([...BUILTIN_PROVIDER_IDS, ...registryProviders]);
+
+      if (providerSet.size === 0) {
+        vscode.window.showWarningMessage('No providers available. Try refreshing the model registry.');
+        return;
+      }
+
+      const providerItems = Array.from(providerSet)
+        .sort()
+        .map((provider) => ({
+          label: provider,
+          description: BUILTIN_PROVIDER_IDS.includes(provider)
+            ? 'Built-in provider'
+            : 'Discovered via models.dev'
+        }));
+
+      const currentProvider = configManager.getConfig<string>(ConfigKeys.AI_PROVIDER, 'openai');
+      const selection = await vscode.window.showQuickPick(providerItems, {
+        placeHolder: 'Select the AI provider to use',
+        activeItem: providerItems.find(item => item.label === currentProvider)
+      });
+
+      if (selection?.label) {
+        const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
+        await config.update(ConfigKeys.AI_PROVIDER, selection.label, vscode.ConfigurationTarget.Global);
+        vscode.window.showInformationMessage(`AI Commit provider set to '${selection.label}'.`);
       }
     });
   }

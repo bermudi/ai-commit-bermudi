@@ -4,12 +4,16 @@ import { ChatCompletionMessageParam } from 'openai/resources';
 import * as vscode from 'vscode';
 import { ConfigKeys, ConfigurationManager } from './config';
 import { getBranchName, getChanges, getRecentCommits } from './git-utils'; // Added getBranchName
-import { ChatGPTAPI } from './openai-utils';
+import { OpenAICompatibleAPI } from './openai-utils';
 import { getMainCommitPrompt } from './prompts';
 import { ProgressHandler, createAbortControllerFromToken, throwIfCancelled } from './utils';
 import { GeminiAPI } from './gemini-utils';
 import { PoeChatAPI } from './poe-utils';
-import { checkAndPromptForConfiguration, ProviderName } from './provider-config';
+import { AnthropicAPI } from './anthropic-utils';
+import { checkAndPromptForConfiguration, ProviderName, normalizeProvider } from './provider-config';
+import { ModelRegistry } from './model-registry';
+import { KeyManager } from './secret-storage';
+import { ReasoningMode } from './reasoning-utils';
 
 interface OpenSpecContextInfo {
   text: string;
@@ -198,6 +202,10 @@ export async function generateCommitMsg(arg) {
         return;
       }
       const aiProvider: ProviderName = resolvedProvider;
+      const normalizedProvider = normalizeProvider(aiProvider);
+      const keyManager = KeyManager.getInstance();
+      const modelRegistry = ModelRegistry.getInstance();
+      const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
       const includeOpenSpecContext = configManager.getConfig<boolean>(ConfigKeys.ENABLE_OPEN_SPEC_CONTEXT, true);
       const includeRecentCommitsContext = configManager.getConfig<boolean>(ConfigKeys.ENABLE_RECENT_COMMITS_CONTEXT, true);
 
@@ -251,24 +259,41 @@ export async function generateCommitMsg(arg) {
         const requestOptions = { signal: abortSignal };
         throwIfCancelled(token);
 
-        if (aiProvider === 'gemini') {
+        if (normalizedProvider === 'gemini' || normalizedProvider === 'google') {
           const geminiApiKey = configManager.getConfig<string>(ConfigKeys.GEMINI_API_KEY);
           if (!geminiApiKey) {
             throw new Error('Gemini API Key not configured');
           }
           commitMessage = await GeminiAPI(messages, requestOptions);
-        } else if (aiProvider === 'poe') {
+        } else if (normalizedProvider === 'poe') {
           const poeApiKey = configManager.getConfig<string>(ConfigKeys.POE_API_KEY);
           if (!poeApiKey) {
             throw new Error('Poe API Key not configured');
           }
           commitMessage = await PoeChatAPI(messages as ChatCompletionMessageParam[], requestOptions);
-        } else {
-          const openaiApiKey = configManager.getConfig<string>(ConfigKeys.OPENAI_API_KEY);
-          if (!openaiApiKey) {
-            throw new Error('OpenAI API Key not configured');
+        } else if (normalizedProvider === 'anthropic') {
+          const anthropicKey = await keyManager.getKey('anthropic');
+          if (!anthropicKey) {
+            throw new Error('Anthropic API Key not configured');
           }
-          commitMessage = await ChatGPTAPI(messages as ChatCompletionMessageParam[], requestOptions);
+          commitMessage = await AnthropicAPI(messages as ChatCompletionMessageParam[], {
+            signal: abortSignal,
+            apiKey: anthropicKey,
+            reasoningMode
+          });
+        } else {
+          const resolvedApiKey = await keyManager.getKey(normalizedProvider);
+          if (!resolvedApiKey) {
+            throw new Error(`API key for '${normalizedProvider}' is not configured`);
+          }
+          const providerMetadata = modelRegistry.getProviderMetadata(normalizedProvider);
+          let baseURL = providerMetadata?.apiBaseUrl ?? configManager.getConfig<string>(ConfigKeys.OPENAI_BASE_URL);
+          commitMessage = await OpenAICompatibleAPI(messages as ChatCompletionMessageParam[], {
+            ...requestOptions,
+            apiKey: resolvedApiKey,
+            baseURL,
+            reasoningMode
+          });
         }
 
 
@@ -297,7 +322,7 @@ export async function generateCommitMsg(arg) {
 
         let errorMessage = 'An unexpected error occurred';
 
-        if (aiProvider === 'openai' && err.response?.status) {
+        if (normalizedProvider === 'openai' && err.response?.status) {
           switch (err.response.status) {
             case 401:
               errorMessage = 'Invalid OpenAI API key or unauthorized access';
@@ -314,13 +339,14 @@ export async function generateCommitMsg(arg) {
             default:
               errorMessage = `OpenAI API error (${err.response.status}): ${err.response.statusText || err.message}`;
           }
-        } else if (aiProvider === 'gemini') {
+        } else if (normalizedProvider === 'gemini' || normalizedProvider === 'google') {
           errorMessage = `Gemini API error: ${err.message}`;
-        } else if (aiProvider === 'poe') {
+        } else if (normalizedProvider === 'poe') {
           errorMessage = `Poe API error: ${err.message}`;
+        } else if (normalizedProvider === 'anthropic') {
+          errorMessage = `Anthropic API error: ${err.message}`;
         } else if (err.message) {
-          // If we have a specific error message, use it
-          errorMessage = err.message;
+          errorMessage = `${normalizedProvider.toUpperCase()} API error: ${err.message}`;
         }
 
         throw new Error(errorMessage);

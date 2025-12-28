@@ -1,34 +1,38 @@
 import * as vscode from 'vscode';
 import { CONFIG_NAMESPACE, ConfigKeys, ConfigurationManager } from './config';
 
-export const providers = {
+export const STATIC_PROVIDER_KEY_MAP: Record<string, ConfigKeys> = {
   openai: ConfigKeys.OPENAI_API_KEY,
+  google: ConfigKeys.GEMINI_API_KEY,
   gemini: ConfigKeys.GEMINI_API_KEY,
   poe: ConfigKeys.POE_API_KEY
-} as const;
+};
 
-export type ProviderName = keyof typeof providers;
+export const BUILTIN_PROVIDER_IDS = Object.freeze(Object.keys(STATIC_PROVIDER_KEY_MAP));
+
+export const isStaticProvider = (provider?: string) =>
+  provider ? Object.prototype.hasOwnProperty.call(STATIC_PROVIDER_KEY_MAP, provider) : false;
+
+export type ProviderName = string;
 
 const hasValidKey = (value?: string | null): value is string =>
   typeof value === 'string' && value.trim().length > 0;
 
 export const normalizeProvider = (provider: string | undefined): ProviderName => {
-  const candidate = provider?.toLowerCase() as ProviderName | undefined;
-  if (candidate && candidate in providers) {
-    return candidate;
+  const normalized = provider?.trim().toLowerCase();
+  if (normalized) {
+    return normalized;
   }
   return 'openai';
 };
 
-const getProviderKeys = (configManager: ConfigurationManager): Record<ProviderName, string | undefined> => {
-  const providerEntries = Object.entries(providers) as [ProviderName, ConfigKeys][];
-
-  return providerEntries.reduce(
+const getStaticProviderKeys = (configManager: ConfigurationManager): Record<string, string | undefined> => {
+  return Object.entries(STATIC_PROVIDER_KEY_MAP).reduce(
     (acc, [provider, key]) => {
       acc[provider] = configManager.getConfig<string>(key);
       return acc;
     },
-    {} as Record<ProviderName, string | undefined>
+    {} as Record<string, string | undefined>
   );
 };
 
@@ -39,22 +43,25 @@ const getProviderKeys = (configManager: ConfigurationManager): Record<ProviderNa
 export async function checkAndPromptForConfiguration(
   configManager: ConfigurationManager
 ): Promise<ProviderName | undefined> {
-  const providerKeys = getProviderKeys(configManager);
+  const providerKeys = getStaticProviderKeys(configManager);
   const currentProviderSetting = configManager.getConfig<string>(ConfigKeys.AI_PROVIDER) ?? 'openai';
   const currentProvider = normalizeProvider(currentProviderSetting);
+
+  if (!isStaticProvider(currentProvider)) {
+    return currentProvider;
+  }
 
   if (hasValidKey(providerKeys[currentProvider])) {
     return currentProvider;
   }
 
-  const providerEntries = Object.entries(providers) as [ProviderName, ConfigKeys][];
-  const validProviderEntry = providerEntries.find(
-    ([provider]) => provider !== currentProvider && hasValidKey(providerKeys[provider])
+  const validProviderEntry = Object.keys(STATIC_PROVIDER_KEY_MAP).find(
+    (provider) => provider !== currentProvider && hasValidKey(providerKeys[provider])
   );
 
   if (!validProviderEntry) {
     const configureSelection = await vscode.window.showWarningMessage(
-      'You need to set up an API key for at least one provider (OpenAI, Gemini, or Poe) to use AI Commit.',
+      'Your selected AI provider is missing an API key. Configure OpenAI, Gemini, Poe, or switch to another provider first.',
       'Configure'
     );
 
@@ -65,9 +72,8 @@ export async function checkAndPromptForConfiguration(
     return undefined;
   }
 
-  const [validProvider] = validProviderEntry;
   const selection = await vscode.window.showInformationMessage(
-    `AI Commit is configured for '${currentProviderSetting}' but no key is set. Found a valid key for '${validProvider}'. Switch to '${validProvider}'?`,
+    `AI Commit is configured for '${currentProviderSetting}' but no key is set. Found a valid key for '${validProviderEntry}'. Switch to '${validProviderEntry}'?`,
     'Yes',
     'Configure'
   );
@@ -75,8 +81,8 @@ export async function checkAndPromptForConfiguration(
   if (selection === 'Yes') {
     await vscode.workspace
       .getConfiguration(CONFIG_NAMESPACE)
-      .update(ConfigKeys.AI_PROVIDER, validProvider, vscode.ConfigurationTarget.Global);
-    return validProvider;
+      .update(ConfigKeys.AI_PROVIDER, validProviderEntry, vscode.ConfigurationTarget.Global);
+    return validProviderEntry;
   }
 
   if (selection === 'Configure') {
