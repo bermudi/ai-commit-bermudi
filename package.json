@@ -72,6 +72,10 @@
         "title": "AI Commit: Refresh Model Registry"
       },
       {
+        "command": "ai-commit-bermudi.setApiKey",
+        "title": "AI Commit: Set API Key"
+      },
+      {
         "command": "extension.configure-ai-commit-bermudi",
         "title": "AI Commit: Configure"
       }

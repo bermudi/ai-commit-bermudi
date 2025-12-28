@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { CONFIG_NAMESPACE, ConfigKeys, ConfigurationManager } from './config';
+import { KeyManager } from './secret-storage';
 
 export const STATIC_PROVIDER_KEY_MAP: Record<string, ConfigKeys> = {
   openai: ConfigKeys.OPENAI_API_KEY,
@@ -26,14 +27,18 @@ export const normalizeProvider = (provider: string | undefined): ProviderName =>
   return 'openai';
 };
 
-const getStaticProviderKeys = (configManager: ConfigurationManager): Record<string, string | undefined> => {
-  return Object.entries(STATIC_PROVIDER_KEY_MAP).reduce(
-    (acc, [provider, key]) => {
-      acc[provider] = configManager.getConfig<string>(key);
-      return acc;
-    },
-    {} as Record<string, string | undefined>
+const getStaticProviderKeys = async (keyManager: KeyManager): Promise<Record<string, string | undefined>> => {
+  const entries = await Promise.all(
+    Object.keys(STATIC_PROVIDER_KEY_MAP).map(async provider => {
+      const key = await keyManager.getKey(provider, { promptIfMissing: false });
+      return [provider, key] as const;
+    })
   );
+
+  return entries.reduce<Record<string, string | undefined>>((acc, [provider, key]) => {
+    acc[provider] = key;
+    return acc;
+  }, {});
 };
 
 /**
@@ -43,7 +48,8 @@ const getStaticProviderKeys = (configManager: ConfigurationManager): Record<stri
 export async function checkAndPromptForConfiguration(
   configManager: ConfigurationManager
 ): Promise<ProviderName | undefined> {
-  const providerKeys = getStaticProviderKeys(configManager);
+  const keyManager = KeyManager.getInstance();
+  const providerKeys = await getStaticProviderKeys(keyManager);
   const currentProviderSetting = configManager.getConfig<string>(ConfigKeys.AI_PROVIDER) ?? 'openai';
   const currentProvider = normalizeProvider(currentProviderSetting);
 

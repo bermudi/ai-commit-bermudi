@@ -4,6 +4,7 @@ import { generateCommitMsg } from './generate-commit-msg';
 import { CONFIG_NAMESPACE, ConfigKeys, ConfigurationManager } from './config';
 import { ModelRegistry } from './model-registry';
 import { BUILTIN_PROVIDER_IDS } from './provider-config';
+import { KeyManager } from './secret-storage';
 
 /**
  * Manages the registration and disposal of commands.
@@ -120,6 +121,55 @@ export class CommandManager {
         const config = vscode.workspace.getConfiguration(CONFIG_NAMESPACE);
         await config.update(ConfigKeys.ANTHROPIC_MODEL, selected, vscode.ConfigurationTarget.Global);
         vscode.window.showInformationMessage(`Anthropic model set to '${selected}'.`);
+      }
+    });
+
+    // Set API key command
+    this.registerCommand('ai-commit-bermudi.setApiKey', async () => {
+      const modelRegistry = ModelRegistry.getInstance();
+      const registryProviders = modelRegistry.getProviders();
+      const providerSet = new Set<string>([...BUILTIN_PROVIDER_IDS, ...registryProviders]);
+
+      if (providerSet.size === 0) {
+        vscode.window.showWarningMessage('No providers available. Try refreshing the model registry.');
+        return;
+      }
+
+      const providerItems: vscode.QuickPickItem[] = Array.from(providerSet)
+        .sort()
+        .map((provider) => ({
+          label: provider,
+          description: BUILTIN_PROVIDER_IDS.includes(provider)
+            ? 'Built-in provider'
+            : 'Discovered via models.dev'
+        }));
+
+      const providerSelection = await vscode.window.showQuickPick(providerItems, {
+        placeHolder: 'Select the provider to set an API key for'
+      });
+
+      if (!providerSelection?.label) {
+        return;
+      }
+
+      const key = await vscode.window.showInputBox({
+        prompt: `Enter API key for ${providerSelection.label}`,
+        placeHolder: 'API Key',
+        password: true,
+        ignoreFocusOut: true
+      });
+
+      if (!key || !key.trim()) {
+        vscode.window.showWarningMessage('API key entry cancelled or empty.');
+        return;
+      }
+
+      try {
+        const keyManager = KeyManager.getInstance();
+        await keyManager.storeKey(providerSelection.label, key.trim());
+        vscode.window.showInformationMessage(`API Key for ${providerSelection.label} saved securely.`);
+      } catch (error: any) {
+        vscode.window.showErrorMessage(`Failed to save API key: ${error?.message ?? 'Unknown error'}`);
       }
     });
   }

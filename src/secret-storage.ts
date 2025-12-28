@@ -101,29 +101,8 @@ export class KeyManager {
 
   async storeKey(provider: string, apiKey: string) {
     const normalizedProvider = provider.toLowerCase();
-    if (STATIC_PROVIDER_KEYS.has(normalizedProvider)) {
-      await vscode.workspace
-        .getConfiguration(CONFIG_NAMESPACE)
-        .update(this.mapStaticProviderToConfigKey(normalizedProvider), apiKey, vscode.ConfigurationTarget.Global);
-      this.invalidate(normalizedProvider);
-      return;
-    }
     await this.storeSecret(normalizedProvider, apiKey);
     this.invalidate(normalizedProvider);
-  }
-
-  private mapStaticProviderToConfigKey(provider: string) {
-    switch (provider) {
-      case 'openai':
-        return ConfigKeys.OPENAI_API_KEY;
-      case 'google':
-      case 'gemini':
-        return ConfigKeys.GEMINI_API_KEY;
-      case 'poe':
-        return ConfigKeys.POE_API_KEY;
-      default:
-        throw new Error(`Unsupported legacy provider ${provider}`);
-    }
   }
 
   async getKey(provider: string, options?: { promptIfMissing?: boolean }) {
@@ -133,26 +112,24 @@ export class KeyManager {
       return cached.key;
     }
 
-    let resolvedKey: string | undefined;
-    if (STATIC_PROVIDER_KEYS.has(normalizedProvider)) {
+    let resolvedKey = await this.getSecret(normalizedProvider);
+    let source: ProviderKeySource = 'secretStorage';
+
+    if (!resolvedKey) {
       resolvedKey = this.readLegacyKey(normalizedProvider);
-      this.caches.set(normalizedProvider, {
-        provider: normalizedProvider,
-        key: resolvedKey,
-        source: 'settings'
-      });
-      return resolvedKey;
+      source = 'settings';
     }
 
-    resolvedKey = await this.getSecret(normalizedProvider);
     if (!resolvedKey && options?.promptIfMissing !== false) {
       resolvedKey = await this.promptForKey(normalizedProvider);
+      source = 'secretStorage';
     }
+
     if (resolvedKey) {
       this.caches.set(normalizedProvider, {
         provider: normalizedProvider,
         key: resolvedKey,
-        source: 'secretStorage'
+        source
       });
     }
     return resolvedKey;
