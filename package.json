@@ -164,11 +164,6 @@
           "default": true,
           "description": "Include gitmoji in generated commit messages"
         },
-        "ai-commit-bermudi.ENABLE_OPEN_SPEC_CONTEXT": {
-          "type": "boolean",
-          "default": true,
-          "description": "Scan openspec/changes for active proposals and feed the list into the AI prompt"
-        },
         "ai-commit-bermudi.ENABLE_RECENT_COMMITS_CONTEXT": {
           "type": "boolean",
           "default": true,

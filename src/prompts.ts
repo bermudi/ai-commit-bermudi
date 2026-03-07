@@ -32,18 +32,12 @@ const loadMarkdownPrompt = async (useGitmoji: boolean): Promise<string> => {
 
 const composePromptFromMarkdown = (
   language: string,
-  markdown: string,
-  useOpenSpec: boolean
+  markdown: string
 ): string => {
-  // Logic Update: Explicitly reference v2.0.0 and conditionally apply OpenSpec guidance
-  const strictHeader = `Your role is to respond with a "Conventional Commit v2.0.0" in ${language} to the diffs you receive.
-Strictly follow the rules for 'spec' types, 'impl' scopes, and 'Spec-Ref' footers.
-No comment, no explanations, no questions, nothing. Only the commit message. \n\n`;
   const standardHeader = `Your role is to respond with a "Conventional Commit v2.0.0" in ${language} to the diffs you receive.
 No comment, no explanations, no questions, nothing. Only the commit message. \n\n`;
 
-  const langHeader = useOpenSpec ? strictHeader : standardHeader;
-  return `${langHeader}${markdown}`;
+  return `${standardHeader}${markdown}`;
 };
 
 /**
@@ -51,7 +45,7 @@ No comment, no explanations, no questions, nothing. Only the commit message. \n\
  *
  * @returns {Promise<Array<Object>>} - A promise that resolves to an array of prompts.
  */
-export const getMainCommitPrompt = async (useOpenSpec: boolean) => {
+export const getMainCommitPrompt = async () => {
   const configManager = ConfigurationManager.getInstance();
   const language = configManager.getConfig<string>(ConfigKeys.AI_COMMIT_LANGUAGE);
   const useGitmoji = configManager.getConfig<boolean>(ConfigKeys.USE_GITMOJI, true);
@@ -71,7 +65,7 @@ export const getMainCommitPrompt = async (useOpenSpec: boolean) => {
 
   // Load the standard markdown prompt
   const md = await loadMarkdownPrompt(useGitmoji);
-  const basePrompt = composePromptFromMarkdown(language, md, useOpenSpec);
+  const basePrompt = composePromptFromMarkdown(language, md);
 
   // Append any additional text if provided
   const content = appendPrompt ? `${basePrompt}\n\n${appendPrompt}` : basePrompt;

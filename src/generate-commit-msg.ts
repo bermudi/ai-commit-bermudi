@@ -15,65 +15,6 @@ import { ModelRegistry } from './model-registry';
 import { KeyManager } from './secret-storage';
 import { ReasoningMode } from './reasoning-utils';
 
-interface OpenSpecContextInfo {
-  text: string;
-  hasSpecs: boolean;
-}
-
-/**
- * Scans the openspec directory to provide context about active specs.
- */
-async function getOpenSpecContext(repoPath: string): Promise<OpenSpecContextInfo> {
-  try {
-    const openSpecDir = path.join(repoPath, 'openspec');
-    const changesPath = path.join(openSpecDir, 'changes');
-    const projectDocPath = path.join(openSpecDir, 'project.md');
-
-    const hasOpenSpecDir = await fs.pathExists(openSpecDir);
-    const hasProjectDoc = await fs.pathExists(projectDocPath);
-
-    if (!hasOpenSpecDir && !hasProjectDoc) {
-      return {
-        text:
-          'OpenSpec context not detected in this repository (no openspec/ directory or openspec/project.md). Spec-Ref footers are optional unless you add OpenSpec proposals.',
-        hasSpecs: false
-      };
-    }
-
-    if (!await fs.pathExists(changesPath)) {
-      return {
-        text:
-          'OpenSpec directory detected but openspec/changes/ is missing. Spec-Ref footers are optional until you add proposals under openspec/changes/.',
-        hasSpecs: hasProjectDoc
-      };
-    }
-
-    const entries = await fs.readdir(changesPath, { withFileTypes: true });
-    // Filter for directories that are not 'archive'
-    const activeSpecs = entries
-      .filter(dirent => dirent.isDirectory() && dirent.name !== 'archive')
-      .map(dirent => `openspec/changes/${dirent.name}`);
-
-    if (activeSpecs.length === 0) {
-      return {
-        text:
-          'OpenSpec directory detected but there are no active proposals under openspec/changes/. Spec-Ref footers are optional until a proposal is active.',
-        hasSpecs: hasProjectDoc
-      };
-    }
-
-    return {
-      text: `\nActive OpenSpec Proposals (Use these paths for Spec-Ref footers if relevant):\n- ${activeSpecs.join('\n- ')}`,
-      hasSpecs: true
-    };
-  } catch (error) {
-    console.warn('Failed to scan openspec context:', error);
-    return {
-      text: '',
-      hasSpecs: false
-    };
-  }
-}
 
 /**
  * Generates a chat completion prompt for the commit message based on the provided diff.
@@ -81,27 +22,23 @@ async function getOpenSpecContext(repoPath: string): Promise<OpenSpecContextInfo
  * @param {string} diff - The diff string representing changes to be committed.
  * @param {string} additionalContext - Additional context for the changes.
  * @param {string} branchName - The current git branch name.
- * @param {string} openSpecContext - List of active specs.
  * @returns {Promise<Array<{ role: string, content: string }>>} - A promise that resolves to an array of messages for the chat completion.
  */
 const generateCommitMessageChatCompletionPrompt = async (
   diff: string,
   additionalContext: string | undefined,
   branchName: string | undefined,
-  openSpecContext: string,
-  recentCommits: string,
-  hasOpenSpecContext: boolean
+  recentCommits: string
 ) => {
-  const INIT_MESSAGES_PROMPT = await getMainCommitPrompt(hasOpenSpecContext);
+  const INIT_MESSAGES_PROMPT = await getMainCommitPrompt();
   const chatContextAsCompletionRequest = [...INIT_MESSAGES_PROMPT];
 
   let contextMsg = `Input Data:\n`;
   if (branchName) contextMsg += `Git Branch: ${branchName}\n`;
-  if (openSpecContext) contextMsg += `${openSpecContext}\n`;
   if (recentCommits) contextMsg += `Recent Commits:\n${recentCommits}\n`;
   if (additionalContext) contextMsg += `User Notes: ${additionalContext}\n`;
 
-  if (branchName || openSpecContext || recentCommits || additionalContext) {
+  if (branchName || recentCommits || additionalContext) {
     chatContextAsCompletionRequest.push({
       role: 'user',
       content: contextMsg
@@ -206,7 +143,6 @@ export async function generateCommitMsg(arg) {
       const keyManager = KeyManager.getInstance();
       const modelRegistry = ModelRegistry.getInstance();
       const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
-      const includeOpenSpecContext = configManager.getConfig<boolean>(ConfigKeys.ENABLE_OPEN_SPEC_CONTEXT, true);
       const includeRecentCommitsContext = configManager.getConfig<boolean>(ConfigKeys.ENABLE_RECENT_COMMITS_CONTEXT, true);
 
       progress.report({ message: 'Gathering Git changes...' });
@@ -221,13 +157,6 @@ export async function generateCommitMsg(arg) {
       // Gather Context
       const additionalContext = scmInputBox.value.trim();
       const branchName = await getBranchName(repo);
-      const repoRoot = repo.rootUri.fsPath;
-      const openSpecContextInfo = includeOpenSpecContext
-        ? await getOpenSpecContext(repoRoot)
-        : { text: '', hasSpecs: false };
-      throwIfCancelled(token);
-      const openSpecContext = openSpecContextInfo.text;
-      const hasOpenSpecContext = openSpecContextInfo.hasSpecs;
       const recentCommits = includeRecentCommitsContext ? await getRecentCommits(repo) : '';
       throwIfCancelled(token);
 
@@ -241,9 +170,7 @@ export async function generateCommitMsg(arg) {
         diff,
         additionalContext,
         branchName,
-        openSpecContext,
-        recentCommits,
-        hasOpenSpecContext
+        recentCommits
       );
       throwIfCancelled(token);
 

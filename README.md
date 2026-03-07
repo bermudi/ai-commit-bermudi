@@ -6,7 +6,7 @@
 
 <h1>AI Commit (bermudi fork)</h1>
 
-Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unstaged Git changes (including untracked files), generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent. Fork uses [Conventional Commits 2.0.0 unofficial specification](https://github.com/bermudi/conventional-commits-unofficial) and can include branch metadata, OpenSpec context, and a digest of recent commits inside the prompt.
+Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unstaged Git changes (including untracked files), generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent. Fork uses [Conventional Commits 2.0.0 unofficial specification](https://github.com/bermudi/conventional-commits-unofficial) and can include branch metadata and a digest of recent commits inside the prompt.
 
 **English** · [Report Bug][github-issues-link] · [Request Feature][github-issues-link]
 
@@ -27,11 +27,11 @@ Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unst
 ## ✨ Features
 
 - 🤯 Generate commit messages from staged diffs or a combined unstaged diff that now includes untracked files and handles binary reads safely.
-- 🧠 Include branch name, active OpenSpec proposals, and recent commits (when enabled) in the AI prompt for richer context.
+- 🧠 Include branch name and recent commits (when enabled) in the AI prompt for richer context.
 - 🗺️ Support multi-language commit messages.
 - 😜 Support adding Gitmoji.
 - 🛠️ Support custom system prompt.
-- 📝 Support Conventional Commits 2.0.0 (optimized for **OpenSpec** and AI workflows).
+- 📝 Support Conventional Commits 2.0.0 (optimized for AI workflows).
 
 ## 📦 Installation
 
@@ -47,7 +47,7 @@ Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unst
 2. In VSCode settings, locate the "ai-commit" configuration options and configure them as needed.
 3. Make changes in your project and add the changes to the staging area (git add).
 4. (Optional) If you want to provide additional context for the commit message, type it in the Source Control panel's message input box before clicking the AI Commit button.
-5. Next to the commit message input box in the "Source Control" panel, click the "AI Commit" icon button. After clicking, the extension will generate a commit message (considering any additional context if provided as well as branch, OpenSpec, and recent commits context) and populate it in the input box. You can commit either staged changes or rely on the unstaged/working copy diff that now includes untracked files.
+5. Next to the commit message input box in the "Source Control" panel, click the "AI Commit" icon button. After clicking, the extension will generate a commit message (considering any additional context if provided as well as branch and recent commits context) and populate it in the input box. You can commit either staged changes or rely on the unstaged/working copy diff that now includes untracked files.
 6. Review the generated commit message, and if you are satisfied, proceed to commit your changes.
 
 > **Note**\
@@ -78,7 +78,7 @@ In the VSCode settings, locate the "ai-commit" configuration options and configu
 | USE_GITMOJI             | boolean |         true         |  Optional   |                         Include Gitmoji in generated commit messages. Set to `false` to disable.                   |
 | AI_COMMIT_SYSTEM_PROMPT | string  |         None         |  Optional   |                    Override the default prompt; leave blank to use the built-in template.                          |
 | AI_COMMIT_SYSTEM_APPEND | string  |         None         |  Optional   |                    Additional text to append to the system prompt for generating commit messages.                          |
-| ENABLE_OPEN_SPEC_CONTEXT | boolean | true | Optional | Scan `openspec/changes` and surface active specs to the AI prompt. Disable to skip the lookup (useful outside OpenSpec repos). |
+
 | ENABLE_RECENT_COMMITS_CONTEXT | boolean | true | Optional | Include a short list of recent commits in the AI prompt. Disable to keep prompts focused on the current diff only. |
 
 ## ⌨️ Local Development
