@@ -225,7 +225,8 @@ export async function generateCommitMsg(arg) {
 
 
         if (commitMessage) {
-          scmInputBox.value = commitMessage;
+          // Strip markdown code fences if the model wrapped the message in them
+          scmInputBox.value = commitMessage.replace(/^```[^\n]*\n?([\s\S]*?)```\s*$/s, '$1').trim();
         } else {
           throw new Error('Failed to generate commit message');
         }
