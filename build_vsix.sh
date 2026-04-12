@@ -14,9 +14,8 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-# Ensure dependencies are installed and the extension is built
+# Ensure dependencies are installed
 pnpm install --frozen-lockfile
-pnpm run build
 
 EXT_NAME="$(node -p "require('./package.json').name")"
 EXT_VERSION="$(node -p "require('./package.json').version")"
