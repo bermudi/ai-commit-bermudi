@@ -51,28 +51,30 @@ export async function getChanges(repo: any): Promise<ChangesResult> {
       return { diff: stagedDiff, source: 'staged' };
     }
 
+    // Only lock files staged — send the raw staged diff anyway
+    const rawStagedDiff = (await git.diff(['--staged']))?.trim() ?? '';
+    if (rawStagedDiff) {
+      return { diff: rawStagedDiff, source: 'staged' };
+    }
+
     const workingDiff = (await git.diff(buildDiffArgs([], ignorePatterns)))?.trim() ?? '';
     const untrackedDiff = await collectUntrackedDiff(git, rootPath, ignorePatterns);
     const combinedDiff = [workingDiff, untrackedDiff].filter(Boolean).join('\n').trim();
 
-    if (!combinedDiff) {
-      const rawStagedDiff = (await git.diff(['--staged']))?.trim() ?? '';
-      if (rawStagedDiff) {
-        return { diff: rawStagedDiff, source: 'staged' };
-      }
-
-      const rawWorkingDiff = (await git.diff())?.trim() ?? '';
-      const rawUntrackedDiff = await collectUntrackedDiff(git, rootPath);
-      const rawCombinedDiff = [rawWorkingDiff, rawUntrackedDiff].filter(Boolean).join('\n').trim();
-
-      if (!rawCombinedDiff) {
-        throw new Error('No changes available to analyze');
-      }
-
-      return { diff: rawCombinedDiff, source: 'unstaged' };
+    if (combinedDiff) {
+      return { diff: combinedDiff, source: 'unstaged' };
     }
 
-    return { diff: combinedDiff, source: 'unstaged' };
+    // Only lock files unstaged — send the raw unstaged diff anyway
+    const rawWorkingDiff = (await git.diff())?.trim() ?? '';
+    const rawUntrackedDiff = await collectUntrackedDiff(git, rootPath);
+    const rawCombinedDiff = [rawWorkingDiff, rawUntrackedDiff].filter(Boolean).join('\n').trim();
+
+    if (!rawCombinedDiff) {
+      throw new Error('No changes available to analyze');
+    }
+
+    return { diff: rawCombinedDiff, source: 'unstaged' };
   } catch (error) {
     console.error('Error reading Git changes:', {
       error,
