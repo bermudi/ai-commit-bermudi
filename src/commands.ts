@@ -196,7 +196,9 @@ export class CommandManager {
         );
 
         if (result === 'Retry') {
-          await handler(...args);
+          // Re-dispatch through the command system so it gets a fresh progress notification
+          // and full error handling (including further retries)
+          vscode.commands.executeCommand(command, ...args);
         } else if (result === 'Configure') {
           await vscode.commands.executeCommand(
             'workbench.action.openSettings',

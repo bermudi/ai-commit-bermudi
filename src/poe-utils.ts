@@ -267,104 +267,149 @@ export async function listAvailablePoeModels(): Promise<string[]> {
   return Array.from(new Set(models.map((model) => model.id))).sort();
 }
 
-export async function PoeChatAPI(messages: ChatCompletionMessageParam[], options?: { signal?: AbortSignal }) {
-  try {
-    console.log('Making Poe API call...');
-    const poe = createPoeApi();
-    const configManager = ConfigurationManager.getInstance();
-    const model = configManager.getConfig<string>(ConfigKeys.POE_MODEL, 'Claude-Sonnet-4.5');
-    const temperature = configManager.getConfig<number>(ConfigKeys.POE_TEMPERATURE, 0.7);
-    const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
+const MAX_RETRIES = 3;
+const INITIAL_BACKOFF_MS = 2000;
 
-    const reasoningEffortHint = deriveReasoningEffortFromMode(reasoningMode);
-    const thinkingLevelHint = deriveThinkingLevelFromMode(reasoningMode);
-
-    const modelMetadata = await getPoeModelMetadata(model);
-    const maxThinkingBudget = extractMaxThinkingBudget(modelMetadata);
-
-    const extraBody: Record<string, string | number> = {};
-    const dynamicParameterLogs: string[] = [];
-
-    const logDynamicParameter = (paramName: string, value: string | number, context: string) => {
-      const message = `Mapping ReasoningMode '${reasoningMode}' to ${paramName} '${value}' ${context}`;
-      dynamicParameterLogs.push(message);
-      console.log(message);
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(resolve, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException('Aborted', 'AbortError'));
     };
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
 
-    const thinkingBudgetDescriptor = getParameterDescriptor(modelMetadata, 'thinking_budget');
-    if (thinkingBudgetDescriptor) {
-      const thinkingBudgetValue = deriveThinkingBudget(reasoningMode, maxThinkingBudget);
-      if (thinkingBudgetValue && thinkingBudgetValue > 0) {
-        extraBody.thinking_budget = thinkingBudgetValue;
-        logDynamicParameter(
-          'thinking_budget',
-          thinkingBudgetValue,
-          `(schema max: ${maxThinkingBudget ?? 'unknown'})`
-        );
+export async function PoeChatAPI(messages: ChatCompletionMessageParam[], options?: { signal?: AbortSignal }) {
+  const signal = options?.signal;
+  let lastError: Error | undefined;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      if (attempt > 0) {
+        const backoffMs = INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1);
+        const jitter = Math.floor(Math.random() * 500);
+        console.log(`Poe API retry attempt ${attempt}/${MAX_RETRIES}, waiting ${backoffMs + jitter}ms...`);
+        await sleep(backoffMs + jitter, signal);
       }
-    }
 
-    const enumParameters = ['thinking_level', 'reasoning_effort', 'output_effort'] as const;
-    for (const paramName of enumParameters) {
-      const allowedValues = extractParameterEnum(modelMetadata, paramName);
-      if (!allowedValues?.length) {
-        continue;
+      if (signal?.aborted) {
+        throw new DOMException('Aborted', 'AbortError');
       }
-      const mappedValue = mapModeToEnum(reasoningMode, allowedValues);
-      extraBody[paramName] = mappedValue;
-      logDynamicParameter(paramName, mappedValue, `(schema options: ${allowedValues.join(', ')})`);
+
+      console.log(`Making Poe API call (attempt ${attempt + 1})...`);
+      const poe = createPoeApi();
+      const configManager = ConfigurationManager.getInstance();
+      const model = configManager.getConfig<string>(ConfigKeys.POE_MODEL, 'Claude-Sonnet-4.5');
+      const temperature = configManager.getConfig<number>(ConfigKeys.POE_TEMPERATURE, 0.7);
+      const reasoningMode = configManager.getConfig<ReasoningMode>(ConfigKeys.REASONING_MODE, 'balanced');
+
+      const reasoningEffortHint = deriveReasoningEffortFromMode(reasoningMode);
+      const thinkingLevelHint = deriveThinkingLevelFromMode(reasoningMode);
+
+      const modelMetadata = await getPoeModelMetadata(model);
+      const maxThinkingBudget = extractMaxThinkingBudget(modelMetadata);
+
+      const extraBody: Record<string, string | number> = {};
+      const dynamicParameterLogs: string[] = [];
+
+      const logDynamicParameter = (paramName: string, value: string | number, context: string) => {
+        const message = `Mapping ReasoningMode '${reasoningMode}' to ${paramName} '${value}' ${context}`;
+        dynamicParameterLogs.push(message);
+        console.log(message);
+      };
+
+      const thinkingBudgetDescriptor = getParameterDescriptor(modelMetadata, 'thinking_budget');
+      if (thinkingBudgetDescriptor) {
+        const thinkingBudgetValue = deriveThinkingBudget(reasoningMode, maxThinkingBudget);
+        if (thinkingBudgetValue && thinkingBudgetValue > 0) {
+          extraBody.thinking_budget = thinkingBudgetValue;
+          logDynamicParameter(
+            'thinking_budget',
+            thinkingBudgetValue,
+            `(schema max: ${maxThinkingBudget ?? 'unknown'})`
+          );
+        }
+      }
+
+      const enumParameters = ['thinking_level', 'reasoning_effort', 'output_effort'] as const;
+      for (const paramName of enumParameters) {
+        const allowedValues = extractParameterEnum(modelMetadata, paramName);
+        if (!allowedValues?.length) {
+          continue;
+        }
+        const mappedValue = mapModeToEnum(reasoningMode, allowedValues);
+        extraBody[paramName] = mappedValue;
+        logDynamicParameter(paramName, mappedValue, `(schema options: ${allowedValues.join(', ')})`);
+      }
+
+      console.log('Poe API Call Parameters:', {
+        model,
+        temperature,
+        messageCount: messages.length,
+        reasoningMode,
+        reasoningEffortHint,
+        thinkingLevelHint,
+        maxThinkingBudget,
+        extraBody,
+        dynamicParameterLogs
+      });
+
+      const completion = await poe.chat.completions.create({
+        model,
+        messages,
+        temperature,
+        ...(Object.keys(extraBody).length > 0 ? { extra_body: extraBody } : {})
+      }, { signal });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('Poe returned empty content');
+      }
+
+      console.log('Poe API call successful');
+      const cleanedContent = cleanPoeReasoningOutput(content);
+      console.log('Poe response reasoning cleanup', {
+        originalLength: content.length,
+        cleanedLength: cleanedContent.length
+      });
+      return cleanedContent;
+    } catch (error) {
+      lastError = error;
+
+      // Don't retry on abort / cancellation
+      if (error?.name === 'AbortError' || error?.code === 'ABORT_ERR') {
+        throw error;
+      }
+
+      const status = error?.status ?? error?.response?.status;
+
+      console.error('Poe API call failed:', {
+        attempt: attempt + 1,
+        error,
+        message: error.message,
+        status,
+        code: error.code
+      });
+
+      // Only retry on 429 (rate limit) or transient server errors (5xx)
+      const isRetryable = status === 429 || (status >= 500 && status < 600);
+      if (!isRetryable || attempt === MAX_RETRIES) {
+        let errorMessage = error.message;
+        if (status === 401) {
+          errorMessage = 'Invalid Poe API key or unauthorized access';
+        } else if (status === 402) {
+          errorMessage = 'Poe API insufficient credits. Please check your subscription points.';
+        } else if (status === 429) {
+          errorMessage = 'Poe API rate limit exceeded. Please try again later.';
+        }
+        throw new Error(errorMessage);
+      }
+
+      // Loop continues → retry
     }
-
-    console.log('Poe API Call Parameters:', {
-      model,
-      temperature,
-      messageCount: messages.length,
-      reasoningMode,
-      reasoningEffortHint,
-      thinkingLevelHint,
-      maxThinkingBudget,
-      extraBody,
-      dynamicParameterLogs
-    });
-
-    const completion = await poe.chat.completions.create({
-      model,
-      messages,
-      temperature,
-      ...(Object.keys(extraBody).length > 0 ? { extra_body: extraBody } : {})
-    });
-
-    const content = completion.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error('Poe returned empty content');
-    }
-
-    console.log('Poe API call successful');
-    const cleanedContent = cleanPoeReasoningOutput(content);
-    console.log('Poe response reasoning cleanup', {
-      originalLength: content.length,
-      cleanedLength: cleanedContent.length
-    });
-    return cleanedContent;
-  } catch (error) {
-    console.error('Poe API call failed:', {
-      error,
-      message: error.message,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      code: error.code
-    });
-
-    let errorMessage = error.message;
-    const status = error.response?.status;
-    if (status === 401) {
-      errorMessage = 'Invalid Poe API key or unauthorized access';
-    } else if (status === 402) {
-      errorMessage = 'Poe API insufficient credits. Please check your subscription points.';
-    } else if (status === 429) {
-      errorMessage = 'Poe API rate limit exceeded. Please try again later.';
-    }
-
-    throw new Error(errorMessage);
   }
+
+  throw lastError ?? new Error('Poe API call failed after retries');
 }
