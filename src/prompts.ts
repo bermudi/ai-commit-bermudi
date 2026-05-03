@@ -34,7 +34,7 @@ const composePromptFromMarkdown = (
   language: string,
   markdown: string
 ): string => {
-  const standardHeader = `Your role is to respond with a "Conventional Commit v2.0.0" in ${language} to the diffs you receive.
+  const standardHeader = `Your role is to respond with a "Conventional Commit v2.0.2" in ${language} to the diffs you receive.
 No comment, no explanations, no questions, nothing. Only the commit message. Do not wrap the commit message in code blocks or backticks. \n\n`;
 
   return `${standardHeader}${markdown}`;

@@ -6,7 +6,7 @@
 
 <h1>AI Commit (bermudi fork)</h1>
 
-Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unstaged Git changes (including untracked files), generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent. Fork uses [Conventional Commits 2.0.0 unofficial specification](https://github.com/bermudi/conventional-commits-unofficial) and can include branch metadata and a digest of recent commits inside the prompt.
+Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unstaged Git changes (including untracked files), generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent. Fork follows the [Conventional Commits 2.0.2 (Unofficial) specification](https://github.com/bermudi/conventional-commits-unofficial) and can include branch metadata and a digest of recent commits inside the prompt.
 
 **English** · [Report Bug][github-issues-link] · [Request Feature][github-issues-link]
 
@@ -31,7 +31,7 @@ Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unst
 - 🗺️ Support multi-language commit messages.
 - 😜 Support adding Gitmoji.
 - 🛠️ Support custom system prompt.
-- 📝 Support Conventional Commits 2.0.0 (optimized for AI workflows).
+- 📝 Support Conventional Commits 2.0.2 (optimized for AI workflows).
 
 ## 📦 Installation
 
@@ -55,7 +55,7 @@ Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unst
 
 ### ⚙️ Configuration
 
-> **Note** Use `USE_GITMOJI` to toggle Gitmoji output. To fully customize the behaviour, provide `SYSTEM_PROMPT` (see [prompt/with_gitmoji.md](./prompt/with_gitmoji.md) and [prompt/without_gitmoji.md](./prompt/without_gitmoji.md)).
+> **Note** Use `USE_GITMOJI` to toggle Gitmoji output. To fully customize behaviour, provide `SYSTEM_PROMPT` (the built-in prompts are condensed summaries of the [full specification](https://github.com/bermudi/conventional-commits-unofficial); see [prompt/with_gitmoji.md](./prompt/with_gitmoji.md) and [prompt/without_gitmoji.md](./prompt/without_gitmoji.md)).
 
 In the VSCode settings, locate the "ai-commit" configuration options and configure them as needed:
 
