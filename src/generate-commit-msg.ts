@@ -234,7 +234,13 @@ export async function generateCommitMsg(arg) {
         if (err instanceof vscode.CancellationError || token.isCancellationRequested) {
           throw new vscode.CancellationError();
         }
-        if (err?.name === 'AbortError' || err?.code === 'ABORT_ERR') {
+        // The OpenAI SDK throws APIUserAbortError for its own aborts;
+        // raw fetch / DOM produce DOMException('Aborted', 'AbortError').
+        if (
+          err?.name === 'AbortError' ||
+          err?.code === 'ABORT_ERR' ||
+          err?.name === 'APIUserAbortError'
+        ) {
           throw new vscode.CancellationError();
         }
         // Log the full error for debugging
