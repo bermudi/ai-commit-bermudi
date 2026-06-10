@@ -6,7 +6,7 @@ import type {
 } from '@anthropic-ai/sdk/resources/messages';
 import { ChatCompletionMessageParam } from 'openai/resources';
 import { ConfigKeys, ConfigurationManager } from './config';
-import { ReasoningMode } from './reasoning-utils';
+import { ReasoningMode, deriveThinkingBudget } from './reasoning-utils';
 
 let cachedClient: { client: Anthropic; apiKey: string } | null = null;
 
@@ -72,16 +72,21 @@ function convertMessages(messages: ChatCompletionMessageParam[]): { system?: str
   };
 }
 
-type ThinkingConfig = { thinking: { effort: 'low' | 'medium' | 'high' } };
+type ThinkingConfig =
+  | { type: 'enabled'; budget_tokens: number; display?: 'summarized' | 'omitted' | null }
+  | { type: 'adaptive'; display?: 'summarized' | 'omitted' | null }
+  | { type: 'disabled' };
 
 function mapReasoningModeToThinking(reasoningMode: ReasoningMode): ThinkingConfig | undefined {
   switch (reasoningMode) {
-    case 'deep':
-      return { thinking: { effort: 'high' } };
+    case 'deep': {
+      const budget = deriveThinkingBudget(reasoningMode) ?? 10000;
+      return { type: 'enabled', budget_tokens: budget };
+    }
     case 'balanced':
-      return { thinking: { effort: 'medium' } };
+      return { type: 'adaptive' };
     case 'fast':
-      return { thinking: { effort: 'low' } };
+      return { type: 'disabled' };
     default:
       return undefined;
   }
@@ -137,19 +142,27 @@ export async function AnthropicAPI(
 
     const thinkingConfig = mapReasoningModeToThinking(reasoningMode);
 
-    type ExtendedPayload = MessageCreateParamsNonStreaming & { thinking?: ThinkingConfig['thinking'] };
+    type ExtendedPayload = MessageCreateParamsNonStreaming & { thinking?: ThinkingConfig };
+
+    // When extended thinking is enabled, max_tokens must accommodate budget_tokens.
+    const maxTokens = thinkingConfig?.type === 'enabled'
+      ? thinkingConfig.budget_tokens + 1024
+      : 1024;
+
+    // Anthropic requires temperature to be unset when thinking is active.
+    const thinkingActive = thinkingConfig?.type === 'enabled' || thinkingConfig?.type === 'adaptive';
 
     const payload: ExtendedPayload = {
       model,
-      max_tokens: 1024,
-      temperature,
+      max_tokens: maxTokens,
+      ...(!thinkingActive && { temperature }),
       messages: conversation,
       stream: false,
       ...(system ? { system } : {})
     };
 
     if (thinkingConfig) {
-      payload.thinking = thinkingConfig.thinking;
+      payload.thinking = thinkingConfig;
     }
 
     const response = await wrapWithAbort<AnthropicMessage>(
