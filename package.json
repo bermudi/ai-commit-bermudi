@@ -264,14 +264,12 @@
     "build": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --minify --sourcemap",
     "compile": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap",
     "watch": "esbuild src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --format=cjs --platform=node --sourcemap --watch",
-    "compile-tests": "tsc -p . --outDir out",
     "lint": "eslint src",
     "package": "vsce package --no-dependencies",
-    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
-    "publish": "vsce publish --no-dependencies",
-    "test": "node ./out/test/runTest.js",
-    "vscode:prepublish": "pnpm run build",
-    "watch-tests": "tsc -p . -w --outDir out"
+    "test": "mocha",
+    "test:watch": "mocha --watch",
+    "test:integration": "tsx scripts/provider-smoke-test.ts",
+    "vscode:prepublish": "pnpm run build"
   },
   "devDependencies": {
     "@types/fs-extra": "^11.0.4",
@@ -286,6 +284,7 @@
     "eslint": "^10.4.1",
     "glob": "^13.0.6",
     "mocha": "^11.7.6",
+    "mock-require": "^3.0.3",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vsce": "^2.15.0"
