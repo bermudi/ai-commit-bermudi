@@ -10,6 +10,12 @@ import { ModelRegistry } from './model-registry';
 import { deriveThinkingBudget, ReasoningMode } from './reasoning-utils';
 
 let cachedClient: GoogleGenAI | null = null;
+
+/** Test-only: reset module-level caches so each test starts fresh. */
+export function __resetGeminiForTests() {
+  cachedClient = null;
+  geminiModelCapabilityCache.clear();
+}
 type GeminiModelCapability = {
   supportsThinking: boolean;
 };
@@ -125,6 +131,9 @@ function mapReasoningModeToThinkingLevel(reasoningMode: ReasoningMode): GeminiTh
   }
   if (reasoningMode === 'deep') {
     return ThinkingLevel.HIGH;
+  }
+  if (reasoningMode === 'balanced') {
+    return ThinkingLevel.MEDIUM;
   }
   return undefined;
 }

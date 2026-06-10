@@ -88,6 +88,18 @@ export class ConfigurationManager {
     return this.instance;
   }
 
+  /** Test-only: reset the singleton so each test starts from a clean slate. */
+  static __resetForTests(): void {
+    if (this.instance) {
+      try {
+        this.instance.disposable?.dispose();
+      } catch {
+        // ignore — disposed singletons in tests
+      }
+    }
+    this.instance = undefined as unknown as ConfigurationManager;
+  }
+
   getConfig<T>(key: string, defaultValue?: T): T {
     if (!this.configCache.has(key)) {
       try {

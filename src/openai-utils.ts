@@ -10,6 +10,11 @@ type OpenAIModelCapabilities = {
 
 const openAICapabilityCache = new Map<string, OpenAIModelCapabilities>();
 
+/** Test-only: reset module-level caches so each test starts fresh. */
+export function __resetOpenAIForTests() {
+  openAICapabilityCache.clear();
+}
+
 type OpenAIReasoningEffort = Extract<ReasoningEffort, 'low' | 'medium' | 'high'>;
 
 type ChatCompletionPayload = ChatCompletionCreateParamsNonStreaming & {
@@ -67,7 +72,9 @@ function isUnsupportedTemperatureError(error: any) {
   return (
     status === 400 &&
     message.includes('temperature') &&
-    (message.includes('unsupported') || message.includes('does not support'))
+    (message.includes('unsupported') ||
+      message.includes('not supported') ||
+      message.includes('does not support'))
   );
 }
 

@@ -29,6 +29,12 @@ interface PoeModelMetadata {
 
 let cachedPoeModels: PoeModelMetadata[] | null = null;
 
+/** Test-only: reset module-level caches so each test starts fresh. */
+export function __resetPoeForTests() {
+  cachedPoeModels = null;
+  backoffOverride = undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Config helpers
 // ---------------------------------------------------------------------------
@@ -147,6 +153,13 @@ function supportsResponsesAPI(modelInfo?: PoeModelMetadata): boolean {
 
 const MAX_RETRIES = 3;
 const INITIAL_BACKOFF_MS = 2000;
+
+/** Test-only: override retry backoff timing. */
+let backoffOverride: { initialMs: number; jitterMs: number } | undefined;
+
+export function __setPoeBackoffForTests(config: { initialMs: number; jitterMs: number } | undefined) {
+  backoffOverride = config;
+}
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -527,8 +540,10 @@ export async function PoeChatAPI(
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
       if (attempt > 0) {
-        const backoffMs = INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1);
-        const jitter = Math.floor(Math.random() * 500);
+        const initial = backoffOverride?.initialMs ?? INITIAL_BACKOFF_MS;
+        const jitterMax = backoffOverride?.jitterMs ?? 500;
+        const backoffMs = initial * Math.pow(2, attempt - 1);
+        const jitter = Math.floor(Math.random() * jitterMax);
         console.log(
           `Poe API retry attempt ${attempt}/${MAX_RETRIES}, waiting ${backoffMs + jitter}ms...`
         );

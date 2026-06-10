@@ -181,6 +181,9 @@ export async function AnthropicAPI(
 
     return text;
   } catch (error: any) {
+    if (error?.name === 'AbortError') {
+      throw error;
+    }
     console.error('Anthropic API call failed:', {
       error,
       message: error?.message,

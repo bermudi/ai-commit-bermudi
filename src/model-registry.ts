@@ -1,5 +1,4 @@
 import * as vscode from 'vscode';
-import * as https from 'https';
 
 const MODELS_DEV_URL = 'https://models.dev/api.json';
 const MODEL_REGISTRY_STATE_KEY = 'ai-commit-bermudi.modelRegistryCache';
@@ -81,6 +80,17 @@ export class ModelRegistry {
       this.instance = new ModelRegistry();
     }
     return this.instance;
+  }
+
+  /** Test-only: reset the singleton and clear cached data. */
+  static __resetForTests() {
+    if (this.instance) {
+      this.instance.cache = null;
+      this.instance.modelIndex = new Map();
+      this.instance.lastFetched = 0;
+      this.instance.inflightRefresh = undefined;
+    }
+    this.instance = undefined as unknown as ModelRegistry;
   }
 
   initialize(context: vscode.ExtensionContext) {
@@ -222,40 +232,25 @@ export class ModelRegistry {
 }
 
 function fetchModelsDev(): Promise<ModelsDevResponse> {
-  return new Promise((resolve, reject) => {
-    const request = https.get(
-      MODELS_DEV_URL,
-      {
-        headers: {
-          Accept: 'application/json'
-        }
-      },
-      (response) => {
-        const statusCode = response.statusCode ?? 0;
-        if (statusCode < 200 || statusCode >= 300) {
-          response.resume();
-          reject(new Error(`models.dev responded with ${statusCode} ${response.statusMessage}`));
-          return;
-        }
-
-        const chunks: Buffer[] = [];
-        response.on('data', (chunk: Buffer) => {
-          chunks.push(Buffer.from(chunk));
-        });
-        response.on('end', () => {
-          try {
-            const body = Buffer.concat(chunks).toString('utf8');
-            resolve(JSON.parse(body));
-          } catch (error: any) {
-            reject(new Error(`Failed to parse models.dev response: ${error?.message ?? error}`));
-          }
-        });
+  const fetcher: typeof fetch | undefined = (globalThis as { fetch?: typeof fetch }).fetch;
+  if (!fetcher) {
+    return Promise.reject(new Error('fetch is not available in this environment'));
+  }
+  return (async () => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetcher(MODELS_DEV_URL, {
+        headers: { Accept: 'application/json' },
+        signal: controller.signal
+      });
+      if (!response.ok) {
+        throw new Error(`models.dev responded with ${response.status} ${response.statusText}`);
       }
-    );
-
-    request.on('error', (error) => reject(error));
-    request.setTimeout(15000, () => {
-      request.destroy(new Error('Request to models.dev timed out'));
-    });
-  });
+      const data = (await response.json()) as ModelsDevResponse;
+      return data;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  })();
 }
