@@ -3,41 +3,31 @@ import { ConfigKeys, ConfigurationManager } from './config';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-// Runtime loader for canonical Markdown prompts
+// Runtime loader for the canonical Scoped Commits prompt
+// Spec: https://scopedcommits.com/
 const PROMPT_DIR = path.resolve(__dirname, '..', 'prompt');
-let cachedWithGitmoji: string | undefined;
-let cachedWithoutGitmoji: string | undefined;
+const PROMPT_FILE = 'scoped-commits.md';
+const PROMPT_PATH = path.resolve(PROMPT_DIR, PROMPT_FILE);
+let cachedPrompt: string | undefined;
 
-const loadMarkdownPrompt = async (useGitmoji: boolean): Promise<string> => {
-  const fileName = useGitmoji ? 'with_gitmoji.md' : 'without_gitmoji.md';
-  const filePath = path.resolve(PROMPT_DIR, fileName);
-
+const loadPrompt = async (): Promise<string> => {
+  if (cachedPrompt) {
+    return cachedPrompt;
+  }
   try {
-    if (useGitmoji) {
-      if (!cachedWithGitmoji) {
-        cachedWithGitmoji = await fs.readFile(filePath, 'utf-8');
-      }
-      return cachedWithGitmoji;
-    }
-
-    if (!cachedWithoutGitmoji) {
-      cachedWithoutGitmoji = await fs.readFile(filePath, 'utf-8');
-    }
-    return cachedWithoutGitmoji;
+    cachedPrompt = await fs.readFile(PROMPT_PATH, 'utf-8');
+    return cachedPrompt;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`Failed to load canonical prompt file ${filePath}: ${message}`);
+    throw new Error(`Failed to load canonical prompt file ${PROMPT_PATH}: ${message}`);
   }
 };
 
-const composePromptFromMarkdown = (
-  language: string,
-  markdown: string
-): string => {
-  const standardHeader = `Your role is to respond with a "Conventional Commit v2.0.2" in ${language} to the diffs you receive.
+const composePrompt = (language: string, body: string): string => {
+  const standardHeader = `Your role is to respond with a "Scoped Commit" in ${language} to the diffs you receive.
 No comment, no explanations, no questions, nothing. Only the commit message. Do not wrap the commit message in code blocks or backticks. \n\n`;
 
-  return `${standardHeader}${markdown}`;
+  return `${standardHeader}${body}`;
 };
 
 /**
@@ -48,7 +38,6 @@ No comment, no explanations, no questions, nothing. Only the commit message. Do 
 export const getMainCommitPrompt = async () => {
   const configManager = ConfigurationManager.getInstance();
   const language = configManager.getConfig<string>(ConfigKeys.AI_COMMIT_LANGUAGE);
-  const useGitmoji = configManager.getConfig<boolean>(ConfigKeys.USE_GITMOJI, true);
   const rawCustomPrompt = configManager.getConfig<string>(ConfigKeys.SYSTEM_PROMPT);
   const rawAppendPrompt = configManager.getConfig<string>(ConfigKeys.SYSTEM_APPEND);
 
@@ -63,9 +52,9 @@ export const getMainCommitPrompt = async () => {
     return [{ role: 'system', content }];
   }
 
-  // Load the standard markdown prompt
-  const md = await loadMarkdownPrompt(useGitmoji);
-  const basePrompt = composePromptFromMarkdown(language, md);
+  // Load the standard Scoped Commits prompt
+  const body = await loadPrompt();
+  const basePrompt = composePrompt(language, body);
 
   // Append any additional text if provided
   const content = appendPrompt ? `${basePrompt}\n\n${appendPrompt}` : basePrompt;

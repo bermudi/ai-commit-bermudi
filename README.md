@@ -6,7 +6,7 @@
 
 <h1>AI Commit (bermudi fork)</h1>
 
-Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unstaged Git changes (including untracked files), generate conventional commit messages that meet the conventions, simplify the commit process, and keep the commit conventions consistent. Fork follows the [Conventional Commits 2.0.2 (Unofficial) specification](https://github.com/bermudi/conventional-commits-unofficial) and can include branch metadata and a digest of recent commits inside the prompt.
+Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unstaged Git changes (including untracked files), generate [Scoped Commits](https://scopedcommits.com/), simplify the commit process, and keep commit messages consistent. The fork can include branch metadata and a digest of recent commits inside the prompt.
 
 **English** · [Report Bug][github-issues-link] · [Request Feature][github-issues-link]
 
@@ -24,16 +24,15 @@ Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unst
 
 </div>
 
-## ✨ Features
+## Features
 
-- 🤯 Generate commit messages from staged diffs or a combined unstaged diff that now includes untracked files and handles binary reads safely.
-- 🧠 Include branch name and recent commits (when enabled) in the AI prompt for richer context.
-- 🗺️ Support multi-language commit messages.
-- 😜 Support adding Gitmoji.
-- 🛠️ Support custom system prompt.
-- 📝 Support Conventional Commits 2.0.2 (optimized for AI workflows).
+- Generate commit messages from staged diffs or a combined unstaged diff that now includes untracked files and handles binary reads safely.
+- Include branch name and recent commits (when enabled) in the AI prompt for richer context.
+- Support multi-language commit messages.
+- Support custom system prompt.
+- Support Scoped Commits (https://scopedcommits.com/) — `<scope>: <description>` with optional body and trailers.
 
-## 📦 Installation
+## Installation
 
 1. Search for "AI Commit" in VSCode and click the "Install" button.
 2. Install it directly from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Sitoi.ai-commit).
@@ -41,7 +40,7 @@ Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unst
 > **Note**\
 > Make sure your node version >= 16
 
-## 🤯 Usage
+## Usage
 
 1. Ensure that you have installed and enabled the "AI Commit" extension.
 2. In VSCode settings, locate the "ai-commit" configuration options and configure them as needed.
@@ -53,9 +52,9 @@ Use OpenAI / Azure OpenAI / DeepSeek / Gemini API to review both staged and unst
 > **Note**\
 > If the code exceeds the maximum token length, consider adding it to the staging area in batches.
 
-### ⚙️ Configuration
+### Configuration
 
-> **Note** Use `USE_GITMOJI` to toggle Gitmoji output. To fully customize behaviour, provide `SYSTEM_PROMPT` (the built-in prompts are condensed summaries of the [full specification](https://github.com/bermudi/conventional-commits-unofficial); see [prompt/with_gitmoji.md](./prompt/with_gitmoji.md) and [prompt/without_gitmoji.md](./prompt/without_gitmoji.md)).
+> **Note** The built-in prompt is a condensed summary of the [Scoped Commits spec](https://scopedcommits.com/); see [prompt/scoped-commits.md](./prompt/scoped-commits.md). To fully customize behaviour, provide `AI_COMMIT_SYSTEM_PROMPT` (the built-in prompt is replaced wholesale) or `AI_COMMIT_SYSTEM_APPEND` (extra text appended to the built-in prompt).
 
 In the VSCode settings, locate the "ai-commit" configuration options and configure them as needed:
 
@@ -75,13 +74,12 @@ In the VSCode settings, locate the "ai-commit" configuration options and configu
 | POE_TEMPERATURE         | number  |         0.7          |  Optional   | Controls randomness (0-2) for Poe chats. |
 | REASONING_MODE          | string  |      balanced        |  Optional   | Single control for all providers: `auto`, `fast`, `balanced`, `deep`. Overrides map to provider-specific knobs. |
 | AI_COMMIT_LANGUAGE      | string  |        English       |  Optional   |                         Supports 19 languages (see setting for the full list).                                     |
-| USE_GITMOJI             | boolean |         true         |  Optional   |                         Include Gitmoji in generated commit messages. Set to `false` to disable.                   |
 | AI_COMMIT_SYSTEM_PROMPT | string  |         None         |  Optional   |                    Override the default prompt; leave blank to use the built-in template.                          |
 | AI_COMMIT_SYSTEM_APPEND | string  |         None         |  Optional   |                    Additional text to append to the system prompt for generating commit messages.                          |
 
 | ENABLE_RECENT_COMMITS_CONTEXT | boolean | true | Optional | Include a short list of recent commits in the AI prompt. Disable to keep prompts focused on the current diff only. |
 
-## ⌨️ Local Development
+## Local Development
 
 You can use Github Codespaces for online development:
 
@@ -96,19 +94,19 @@ $ pnpm install
 $ pnpm package
 ```
 
-Fork built with ⚡ **esbuild** for blazing fast builds.
+Fork built with **esbuild** for blazing fast builds.
 
-## 🤝 Contributing
+## Contributing
 
 Contributions of all types are more than welcome, if you are interested in contributing code, feel free to check out our GitHub [Issues][github-issues-link] to get stuck in to show us what you’re made of.
 
 [![][pr-welcome-shield]][pr-welcome-link]
 
-### 💗 All Thanks To Our Contributors
+### All Thanks To Our Contributors
 
 [![][github-contrib-shield]][github-contrib-link]
 
-## 🔗 Links
+## Links
 
 ### Credits
 
@@ -118,7 +116,7 @@ Contributions of all types are more than welcome, if you are interested in contr
 
 ---
 
-## 📝 License
+## License
 
 This project is [MIT](./LICENSE) licensed.
 
@@ -137,7 +135,7 @@ This project is [MIT](./LICENSE) licensed.
 [github-stars-link]: https://github.com/bermudi/ai-commit-bermudi/network/stargazers
 [github-stars-shield]: https://img.shields.io/github/stars/bermudi/ai-commit-bermudi?color=ffcb47&labelColor=black&style=flat-square
 [pr-welcome-link]: https://github.com/bermudi/ai-commit-bermudi/pulls
-[pr-welcome-shield]: https://img.shields.io/badge/🤯_pr_welcome-%E2%86%92-ffcb47?labelColor=black&style=for-the-badge
+[pr-welcome-shield]: https://img.shields.io/badge/PR_welcome-%E2%86%92-ffcb47?labelColor=black&style=for-the-badge
 [github-contrib-link]: https://github.com/bermudi/ai-commit-bermudi/graphs/contributors
 [github-contrib-shield]: https://contrib.rocks/image?repo=bermudi%2Fai-commit-bermudi
 [vscode-marketplace-link]: https://marketplace.visualstudio.com/items?itemName=bermudi.ai-commit-bermudi
@@ -146,4 +144,3 @@ This project is [MIT](./LICENSE) licensed.
 [total-installs-shield]: https://img.shields.io/vscode-marketplace/d/bermudi.ai-commit-bermudi.svg?&color=greeen&labelColor=black&style=flat-square
 [avarage-rating-link]: https://marketplace.visualstudio.com/items?itemName=bermudi.ai-commit-bermudi
 [avarage-rating-shield]: https://img.shields.io/vscode-marketplace/r/bermudi.ai-commit-bermudi.svg?&color=green&labelColor=black&style=flat-square
---- END OF FILE README.md ---

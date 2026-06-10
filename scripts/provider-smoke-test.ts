@@ -488,7 +488,7 @@ async function main() {
 
   console.log('── Results ──');
   for (const r of results) {
-    const prefix = r.status === 'ok' ? '✅' : r.status === 'skipped' ? '⚪' : '❌';
+    const prefix = r.status === 'ok' ? '[ok]' : r.status === 'skipped' ? '[skip]' : '[fail]';
     const api = r.apiPath ? ` [${r.apiPath}]` : '';
     const lat = r.latencyMs ? ` (${r.latencyMs}ms)` : '';
     console.log(`${prefix} ${r.provider}/${r.model}${api}${lat}`);

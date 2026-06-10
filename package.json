@@ -1,7 +1,7 @@
 {
   "name": "ai-commit-bermudi",
   "displayName": "AI Commit (bermudi fork)",
-  "description": "Use Azure/OpenAI/Gemini to generate conventional commit messages. Optimized for AI-Agent workflows (OpenSpec) and Gitmoji.",
+  "description": "Use Azure/OpenAI/Gemini to generate Scoped Commits (https://scopedcommits.com/). Optimized for AI-Agent workflows (OpenSpec).",
   "version": "0.7.0",
   "engines": {
     "node": ">=16",
@@ -14,9 +14,8 @@
     "Azure",
     "OpenAI",
     "ChatGPT",
-    "GitEmoji",
     "Git Commit",
-    "Conventional Commits",
+    "Scoped Commits",
     "Commitizen",
     "Commit Message",
     "Commit Message Generator",
@@ -158,11 +157,6 @@
           "type": "string",
           "default": "",
           "description": "Additional text to append to the system prompt for generating commit messages"
-        },
-        "ai-commit-bermudi.USE_GITMOJI": {
-          "type": "boolean",
-          "default": true,
-          "description": "Include gitmoji in generated commit messages"
         },
         "ai-commit-bermudi.ENABLE_RECENT_COMMITS_CONTEXT": {
           "type": "boolean",
